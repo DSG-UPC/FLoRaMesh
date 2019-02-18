@@ -54,8 +54,8 @@ bool LoRaReceiver::computeIsReceptionPossible(const IListening *listening, const
 {
     //here we can check compatibility of LoRaTx parameters (or beeing a gateway)
     const LoRaTransmission *loRaTransmission = check_and_cast<const LoRaTransmission *>(transmission);
-    SimpleLoRaApp *loRaApp = check_and_cast<SimpleLoRaApp *>(getParentModule()->getParentModule()->getSubmodule("SimpleLoRaApp"));
-    if(iAmGateway || (loRaTransmission->getLoRaCF() == loRaApp->loRaCF && loRaTransmission->getLoRaBW() == loRaApp->loRaBW && loRaTransmission->getLoRaSF() == loRaApp->loRaSF))
+    SimpleLoRaMeshApp *loRaMeshApp = check_and_cast<SimpleLoRaMeshApp *>(getParentModule()->getParentModule()->getSubmodule("SimpleLoRaMeshApp"));
+    if(iAmGateway || (loRaTransmission->getLoRaCF() == loRaMeshApp->loRaCF && loRaTransmission->getLoRaBW() == loRaMeshApp->loRaBW && loRaTransmission->getLoRaSF() == loRaMeshApp->loRaSF))
         return true;
     else
         return false;
@@ -230,8 +230,8 @@ const IListening *LoRaReceiver::createListening(const IRadio *radio, const simti
 {
     if(iAmGateway == false)
     {
-        SimpleLoRaApp *loRaApp = check_and_cast<SimpleLoRaApp *>(getParentModule()->getParentModule()->getParentModule()->getSubmodule("SimpleLoRaApp"));
-        return new LoRaBandListening(radio, startTime, endTime, startPosition, endPosition, loRaApp->loRaCF, loRaApp->loRaSF, loRaApp->loRaBW);
+        SimpleLoRaMeshApp *loRaMeshApp = check_and_cast<SimpleLoRaMeshApp *>(getParentModule()->getParentModule()->getParentModule()->getSubmodule("SimpleLoRaMeshApp"));
+        return new LoRaBandListening(radio, startTime, endTime, startPosition, endPosition, loRaMeshApp->loRaCF, loRaMeshApp->loRaSF, loRaMeshApp->loRaBW);
     }
     else return new LoRaBandListening(radio, startTime, endTime, startPosition, endPosition, LoRaCF, LoRaSF, LoRaBW);
 }

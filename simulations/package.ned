@@ -5,6 +5,7 @@ import inet.node.inet.Router;
 import inet.node.internetcloud.InternetCloud;
 import loranetwork.LoRaPhy.LoRaMedium;
 import loranetwork.LoraNode.LoRaNode;
+import loranetwork.LoraNode.LoRaMeshNode;
 import loranetwork.LoraNode.LoRaGW;
 import inet.node.inet.StandardHost;
 import inet.networklayer.configurator.ipv4.IPv4NetworkConfigurator;
@@ -54,5 +55,23 @@ network LoRaNetworkTest
             internetCloud.pppg++ <--> Eth1G <--> gwRouter[i].pppg++;
             gwRouter[i].ethg++ <--> Eth1G <--> loRaGW[i].ethg++;
         }
+}
+
+network LoRaMeshNetworkTest
+{
+    parameters:
+        int numberOfNodes = default(1);
+        int numberOfGateways = default(1);
+        int networkSizeX = default(500);
+        int networkSizeY = default(500);
+        @display("bgb=355.824,356.832");
+    submodules:
+        loRaMeshNodes[numberOfNodes]: LoRaMeshNode {
+            @display("p=83.664,233.856");
+        }
+        LoRaMedium: LoRaMedium {
+            @display("p=167.328,88.704");
+        }
+    connections:
 }
 
