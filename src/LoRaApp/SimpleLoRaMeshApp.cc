@@ -21,6 +21,9 @@ Define_Module(SimpleLoRaMeshApp);
 
 void SimpleLoRaMeshApp::initialize(int stage)
 {
+    EV << "\nAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n";
+    bubble("LoRa app initialized!");
+
     cSimpleModule::initialize(stage);
     if (stage == INITSTAGE_LOCAL) {
         std::pair<double,double> coordsValues = std::make_pair(-1, -1);
@@ -125,7 +128,10 @@ void SimpleLoRaMeshApp::handleMessage(cMessage *msg)
     }
     else
     {
+
+        EV << "\nBBBBBAAAAAAAAAAAAAAAA\nAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\nAAAAAAAAAAAA\nAAAAAAAAAAAAAAAAAAAAAA\nAAAAAAAAAAAAAAAAAAAAAAAA\nAAAAAAAAAAAA\nAAAAAAAAAAAAAA\nAAAAAAAAAAAAAAAAAAAAAA\n";
         handleMessageFromLowerLayer(msg);
+        bubble("A MESSAGE FROM LOWER LAYER!");
         delete msg;
         //cancelAndDelete(sendMeasurements);
         //sendMeasurements = new cMessage("sendMeasurements");
@@ -135,6 +141,7 @@ void SimpleLoRaMeshApp::handleMessage(cMessage *msg)
 
 void SimpleLoRaMeshApp::handleMessageFromLowerLayer(cMessage *msg)
 {
+    EV << "\nCCCCCCCCCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n";
     LoRaAppPacket *packet = check_and_cast<LoRaAppPacket *>(msg);
     if (simTime() >= getSimulation()->getWarmupPeriod())
         receivedADRCommands++;
