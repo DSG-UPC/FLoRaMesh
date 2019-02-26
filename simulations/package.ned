@@ -61,9 +61,9 @@ network LoRaMotoNetworkTest
     parameters:
         int numberOfNodes = default(1);
         int numberOfGateways = default(1);
-        int networkSizeX = default(1500);
+        int networkSizeX = default(1400);
         int networkSizeY = default(2500);
-        @display("bgb=1500,2500;bgi=background/coquimbo-01;bgl=2");
+        @display("bgb=1400,2500;bgi=background/coquimbo-02;bgl=2");
     submodules:
         N[numberOfNodes]: LoRaNode {
             @display("p=83.664,233.856;is=n");
