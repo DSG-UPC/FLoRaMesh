@@ -29,11 +29,8 @@ void LoRaMotoGWMac::initialize(int stage)
         // subscribe for the information of the carrier sense
         cModule *radioModule = getModuleFromPar<cModule>(par("radioModule"), this);
         //radioModule->subscribe(IRadio::radioModeChangedSignal, this);
-        EV << "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA 01\n";
         radioModule->subscribe(IRadio::transmissionStateChangedSignal, this);
-        EV << "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA 02\n";
         radio = check_and_cast<IRadio *>(radioModule);
-        EV << "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA 03\n";
         waitingForDC = false;
         dutyCycleTimer = new cMessage("Duty Cycle Timer");
         const char *addressString = par("address");
@@ -90,9 +87,7 @@ void LoRaMotoGWMac::handleUpperPacket(cPacket *msg)
 {
     if(waitingForDC == false)
     {
-        EV << "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA 04\n";
         LoRaMacFrame *frame = check_and_cast<LoRaMacFrame *>(msg);
-        EV << "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA 05\n";
         frame->removeControlInfo();
         LoRaMacControlInfo *ctrl = new LoRaMacControlInfo();
         ctrl->setSrc(address);
@@ -119,9 +114,7 @@ void LoRaMotoGWMac::handleUpperPacket(cPacket *msg)
 
 void LoRaMotoGWMac::handleLowerPacket(cPacket *msg)
 {
-    EV << "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA 06\n";
     LoRaMacFrame *frame = check_and_cast<LoRaMacFrame *>(msg);
-    EV << "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA 07\n";
     if(frame->getReceiverAddress() == DevAddr::BROADCAST_ADDRESS)
         sendUp(frame);
     else
