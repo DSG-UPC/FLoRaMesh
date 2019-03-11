@@ -6,6 +6,7 @@ import inet.node.internetcloud.InternetCloud;
 import loranetwork.LoRaPhy.LoRaMedium;
 import loranetwork.LoraNode.LoRaNode;
 import loranetwork.LoraNode.LoRaGW;
+import loranetwork.LoraNode.LoRaMotoGW;
 import inet.node.inet.StandardHost;
 import inet.networklayer.configurator.ipv4.IPv4NetworkConfigurator;
 import inet.node.ethernet.Eth1G;
@@ -68,35 +69,20 @@ network LoRaMotoNetworkTest
         N[numberOfNodes]: LoRaNode {
             @display("p=83.664,233.856;is=n");
         }
-        loRaGW[numberOfGateways]: LoRaGW {
+        MGW[numberOfGateways]: LoRaMotoGW {
             @display("p=100,100;is=n");
         }
         LoRaMedium: LoRaMedium {
             @display("p=20,35;is=l;i=misc/sun");
-        }
-        networkServer: StandardHost {
-            parameters:
-                @display("p=250,35;is=s");
         }
         configurator: IPv4NetworkConfigurator {
             parameters:
                 assignDisjunctSubnetAddresses = false;
                 @display("p=207.64801,88.704");
         }
-        internetCloud: InternetCloud {
-            @display("p=150,35;is=s");
-        }
-        gwRouter[numberOfGateways]: Router {
-            @display("p=100,35;is=s");
-        }
-        nsRouter: Router {
-            @display("p=200,35;is=s");
+        networkServer: StandardHost {
+            parameters:
+                @display("p=208.24002,27.216002");
         }
     connections:
-        networkServer.ethg++ <--> Eth1G <--> nsRouter.ethg++;
-        nsRouter.pppg++ <--> Eth1G <--> internetCloud.pppg++;
-        for i=0..numberOfGateways-1 {
-            internetCloud.pppg++ <--> Eth1G <--> gwRouter[i].pppg++;
-            gwRouter[i].ethg++ <--> Eth1G <--> loRaGW[i].ethg++;
-        }
 }
