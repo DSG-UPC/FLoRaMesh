@@ -70,135 +70,138 @@ void SimpleLoRaMotoGWApp::initialize(int stage)
 
 std::pair<double,double> SimpleLoRaMotoGWApp::generateUniformCircleCoordinates(double radius, double gatewayX, double gatewayY)
 {
-    double randomValueRadius = uniform(0,(radius*radius));
-    double randomTheta = uniform(0,2*M_PI);
-
-    // generate coordinates for circle with origin at 0,0
-    double x = sqrt(randomValueRadius) * cos(randomTheta);
-    double y = sqrt(randomValueRadius) * sin(randomTheta);
-    // Change coordinates based on coordinate system used in OMNeT, with origin at top left
-    x = x + gatewayX;
-    y = gatewayY - y;
-    std::pair<double,double> coordValues = std::make_pair(x,y);
-    return coordValues;
+//    double randomValueRadius = uniform(0,(radius*radius));
+//    double randomTheta = uniform(0,2*M_PI);
+//
+//    // generate coordinates for circle with origin at 0,0
+//    double x = sqrt(randomValueRadius) * cos(randomTheta);
+//    double y = sqrt(randomValueRadius) * sin(randomTheta);
+//    // Change coordinates based on coordinate system used in OMNeT, with origin at top left
+//    x = x + gatewayX;
+//    y = gatewayY - y;
+//    std::pair<double,double> coordValues = std::make_pair(x,y);
+//    return coordValues;
 }
 
 void SimpleLoRaMotoGWApp::finish()
 {
-    cModule *host = getContainingNode(this);
-    StationaryMobility *mobility = check_and_cast<StationaryMobility *>(host->getSubmodule("mobility"));
-    Coord coord = mobility->getCurrentPosition();
-    recordScalar("positionX", coord.x);
-    recordScalar("positionY", coord.y);
-    recordScalar("finalTP", loRaTP);
-    recordScalar("finalSF", loRaSF);
-    recordScalar("sentPackets", sentPackets);
-    recordScalar("receivedADRCommands", receivedADRCommands);
+//    cModule *host = getContainingNode(this);
+//    StationaryMobility *mobility = check_and_cast<StationaryMobility *>(host->getSubmodule("mobility"));
+//    Coord coord = mobility->getCurrentPosition();
+//    recordScalar("positionX", coord.x);
+//    recordScalar("positionY", coord.y);
+//    recordScalar("finalTP", loRaTP);
+//    recordScalar("finalSF", loRaSF);
+//    recordScalar("sentPackets", sentPackets);
+//    recordScalar("receivedADRCommands", receivedADRCommands);
 }
 
 void SimpleLoRaMotoGWApp::handleMessage(cMessage *msg)
 {
-    if (msg->isSelfMessage()) {
-        if (msg == sendMeasurements)
-        {
-            sendJoinRequest();
-            if (simTime() >= getSimulation()->getWarmupPeriod())
-                sentPackets++;
-            delete msg;
-            if(numberOfPacketsToSend == 0 || sentPackets < numberOfPacketsToSend)
-            {
-                double time;
-                if(loRaSF == 7) time = 7.808;
-                if(loRaSF == 8) time = 13.9776;
-                if(loRaSF == 9) time = 24.6784;
-                if(loRaSF == 10) time = 49.3568;
-                if(loRaSF == 11) time = 85.6064;
-                if(loRaSF == 12) time = 171.2128;
-                do {
-                    timeToNextPacket = par("timeToNextPacket");
-                    //if(timeToNextPacket < 3) error("Time to next packet must be grater than 3");
-                } while(timeToNextPacket <= time);
-                sendMeasurements = new cMessage("sendMeasurements");
-                scheduleAt(simTime() + timeToNextPacket, sendMeasurements);
-            }
-        }
-    }
-    else
-    {
-        handleMessageFromLowerLayer(msg);
-        delete msg;
-        //cancelAndDelete(sendMeasurements);
-        //sendMeasurements = new cMessage("sendMeasurements");
-        //scheduleAt(simTime(), sendMeasurements);
-    }
+      delete msg;
+//    if (msg->isSelfMessage()) {
+//        if (msg == sendMeasurements)
+//        {
+//            sendJoinRequest();
+//            if (simTime() >= getSimulation()->getWarmupPeriod())
+//                sentPackets++;
+//            delete msg;
+//            if(numberOfPacketsToSend == 0 || sentPackets < numberOfPacketsToSend)
+//            {
+//                double time;
+//                if(loRaSF == 7) time = 7.808;
+//                if(loRaSF == 8) time = 13.9776;
+//                if(loRaSF == 9) time = 24.6784;
+//                if(loRaSF == 10) time = 49.3568;
+//                if(loRaSF == 11) time = 85.6064;
+//                if(loRaSF == 12) time = 171.2128;
+//                do {
+//                    timeToNextPacket = par("timeToNextPacket");
+//                    //if(timeToNextPacket < 3) error("Time to next packet must be grater than 3");
+//                } while(timeToNextPacket <= time);
+//                sendMeasurements = new cMessage("sendMeasurements");
+//                scheduleAt(simTime() + timeToNextPacket, sendMeasurements);
+//            }
+//        }
+//    }
+//    else
+//    {
+//        handleMessageFromLowerLayer(msg);
+//        delete msg;
+//        //cancelAndDelete(sendMeasurements);
+//        //sendMeasurements = new cMessage("sendMeasurements");
+//        //scheduleAt(simTime(), sendMeasurements);
+//    }
 }
 
 void SimpleLoRaMotoGWApp::handleMessageFromLowerLayer(cMessage *msg)
 {
-    LoRaAppPacket *packet = check_and_cast<LoRaAppPacket *>(msg);
-    if (simTime() >= getSimulation()->getWarmupPeriod())
-        receivedADRCommands++;
-    if(evaluateADRinNode)
-    {
-        ADR_ACK_CNT = 0;
-        if(packet->getMsgType() == TXCONFIG)
-        {
-            if(packet->getOptions().getLoRaTP() != -1)
-            {
-                loRaTP = packet->getOptions().getLoRaTP();
-            }
-            if(packet->getOptions().getLoRaSF() != -1)
-            {
-                loRaSF = packet->getOptions().getLoRaSF();
-            }
-        }
-    }
+    delete msg;
+//A    LoRaAppPacket *packet = check_and_cast<LoRaAppPacket *>(msg);
+//A    if (simTime() >= getSimulation()->getWarmupPeriod())
+//A        receivedADRCommands++;
+//A    if(evaluateADRinNode)
+//A    {
+//A        ADR_ACK_CNT = 0;
+//A        if(packet->getMsgType() == TXCONFIG)
+//A        {
+//A            if(packet->getOptions().getLoRaTP() != -1)
+//A            {
+//A                loRaTP = packet->getOptions().getLoRaTP();
+//A            }
+//A            if(packet->getOptions().getLoRaSF() != -1)
+//A            {
+//A                loRaSF = packet->getOptions().getLoRaSF();
+//A            }
+//A        }
+//A    }
 }
 
 bool SimpleLoRaMotoGWApp::handleOperationStage(LifecycleOperation *operation, int stage, IDoneCallback *doneCallback)
 {
-    Enter_Method_Silent();
-
-    throw cRuntimeError("Unsupported lifecycle operation '%s'", operation->getClassName());
+//    Enter_Method_Silent();
+//
+//    throw cRuntimeError("Unsupported lifecycle operation '%s'", operation->getClassName());
+//    return true;
     return true;
 }
 
 void SimpleLoRaMotoGWApp::sendJoinRequest()
 {
     LoRaAppPacket *request = new LoRaAppPacket("DataFrame");
-    request->setKind(DATA);
-    lastSentMeasurement = rand();
-    request->setSampleMeasurement(lastSentMeasurement);
-
-    if(evaluateADRinNode && sendNextPacketWithADRACKReq)
-    {
-        request->getOptions().setADRACKReq(true);
-        sendNextPacketWithADRACKReq = false;
-    }
-
-    //add LoRa control info
-    LoRaMacControlInfo *cInfo = new LoRaMacControlInfo;
-    cInfo->setLoRaTP(loRaTP);
-    cInfo->setLoRaCF(loRaCF);
-    cInfo->setLoRaSF(loRaSF);
-    cInfo->setLoRaBW(loRaBW);
-    cInfo->setLoRaCR(loRaCR);
-
-    request->setControlInfo(cInfo);
-    sfVector.record(loRaSF);
-    tpVector.record(loRaTP);
-    //send(request, "appOut");
-    delete request;
-    if(evaluateADRinNode)
-    {
-        ADR_ACK_CNT++;
-        if(ADR_ACK_CNT == ADR_ACK_LIMIT) sendNextPacketWithADRACKReq = true;
-        if(ADR_ACK_CNT >= ADR_ACK_LIMIT + ADR_ACK_DELAY)
-        {
-            ADR_ACK_CNT = 0;
-            increaseSFIfPossible();
-        }
-    }
+//    request->setKind(DATA);
+//    lastSentMeasurement = rand();
+//    request->setSampleMeasurement(lastSentMeasurement);
+//
+//    if(evaluateADRinNode && sendNextPacketWithADRACKReq)
+//    {
+//        request->getOptions().setADRACKReq(true);
+//        sendNextPacketWithADRACKReq = false;
+//    }
+//
+//    //add LoRa control info
+//    LoRaMacControlInfo *cInfo = new LoRaMacControlInfo;
+//    cInfo->setLoRaTP(loRaTP);
+//    cInfo->setLoRaCF(loRaCF);
+//    cInfo->setLoRaSF(loRaSF);
+//    cInfo->setLoRaBW(loRaBW);
+//    cInfo->setLoRaCR(loRaCR);
+//
+//    request->setControlInfo(cInfo);
+//    sfVector.record(loRaSF);
+//    tpVector.record(loRaTP);
+//    //send(request, "appOut");
+//    delete request;
+//    if(evaluateADRinNode)
+//    {
+//        ADR_ACK_CNT++;
+//        if(ADR_ACK_CNT == ADR_ACK_LIMIT) sendNextPacketWithADRACKReq = true;
+//        if(ADR_ACK_CNT >= ADR_ACK_LIMIT + ADR_ACK_DELAY)
+//        {
+//            ADR_ACK_CNT = 0;
+//            increaseSFIfPossible();
+//        }
+//    }
     emit(LoRa_AppPacketSent, loRaSF);
 }
 

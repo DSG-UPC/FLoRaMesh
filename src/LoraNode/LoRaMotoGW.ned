@@ -21,7 +21,6 @@ import inet.networklayer.contract.INetworkLayer;
 import inet.linklayer.loopback.LoopbackInterface;
 import loranetwork.LoRa.LoRaMotoGWNic;
 import loranetwork.LoRaApp.SimpleLoRaMotoGWApp;
-import loranetwork.LoRa.PacketForwarder;
 import inet.linklayer.contract.IWiredNic;
 import inet.applications.contract.IUDPApp;
 import inet.transportlayer.contract.IUDP;
@@ -41,7 +40,6 @@ module LoRaMotoGW
 
         @display("bgb=611,560;i=device/antennatower");
     gates:
-        inout ethg[] @labels(EtherFrame-conn);
     submodules:
         mobility: StationaryMobility {
             @display("p=24,88");

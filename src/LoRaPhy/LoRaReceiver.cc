@@ -54,11 +54,19 @@ bool LoRaReceiver::computeIsReceptionPossible(const IListening *listening, const
 {
     //here we can check compatibility of LoRaTx parameters (or beeing a gateway)
     const LoRaTransmission *loRaTransmission = check_and_cast<const LoRaTransmission *>(transmission);
-    SimpleLoRaApp *loRaApp = check_and_cast<SimpleLoRaApp *>(getParentModule()->getParentModule()->getSubmodule("SimpleLoRaApp"));
-    if(iAmGateway || (loRaTransmission->getLoRaCF() == loRaApp->loRaCF && loRaTransmission->getLoRaBW() == loRaApp->loRaBW && loRaTransmission->getLoRaSF() == loRaApp->loRaSF))
+    if(iAmGateway){
         return true;
-    else
-        return false;
+    }
+    else {
+        SimpleLoRaApp *loRaApp = check_and_cast<SimpleLoRaApp *>(getParentModule()->getParentModule()->getSubmodule("SimpleLoRaApp"));
+        if ( (loRaTransmission->getLoRaCF() == loRaApp->loRaCF && loRaTransmission->getLoRaBW() == loRaApp->loRaBW && loRaTransmission->getLoRaSF() == loRaApp->loRaSF))
+        {
+            return true;
+        }
+        else {
+            return false;
+        }
+    }
 }
 
 bool LoRaReceiver::computeIsReceptionPossible(const IListening *listening, const IReception *reception, IRadioSignal::SignalPart part) const

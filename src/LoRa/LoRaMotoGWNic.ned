@@ -39,7 +39,7 @@ module LoRaMotoGWNic like IWirelessNic
                 upperMgmtIn;
                 upperMgmtOut;    
         }
-        radio: LoRaGWRadio {
+        radio: LoRaMotoGWRadio {
             parameters:
                 @display("p=100,250");
         }
