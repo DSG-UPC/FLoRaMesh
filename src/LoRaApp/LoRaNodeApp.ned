@@ -18,7 +18,7 @@ package loranetwork.LoRaApp;
 //
 // TODO auto-generated module
 //
-simple SimpleLoRaApp
+simple LoRaNodeApp
 {
     parameters:
         @signal[LoRa_AppPacketSent](type=long); // optional
@@ -32,8 +32,8 @@ simple SimpleLoRaApp
         double initialLoRaBW @unit(Hz) = default(125kHz);
         int initialLoRaCR = default(4);
         bool initialUseHeader = default(true);
-    	@class(inet::SimpleLoRaApp);
-    	bool evaluateADRinNode = default(false);
+        @class(inet::LoRaNodeApp);
+        bool evaluateADRinNode = default(false);
     gates:
         output appOut @labels(LoRaAppPacket/down);
         input appIn @labels(LoRaAppPacket/up);

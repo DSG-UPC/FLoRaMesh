@@ -13,13 +13,14 @@
 // along with this program.  If not, see http://www.gnu.org/licenses/.
 // 
 
-#include "SimpleLoRaApp.h"
+#include "LoRaNodeApp.h"
+
 #include "inet/mobility/static/StationaryMobility.h"
 namespace inet {
 
-Define_Module(SimpleLoRaApp);
+Define_Module(LoRaNodeApp);
 
-void SimpleLoRaApp::initialize(int stage)
+void LoRaNodeApp::initialize(int stage)
 {
     cSimpleModule::initialize(stage);
     if (stage == INITSTAGE_LOCAL) {
@@ -68,7 +69,7 @@ void SimpleLoRaApp::initialize(int stage)
     }
 }
 
-std::pair<double,double> SimpleLoRaApp::generateUniformCircleCoordinates(double radius, double gatewayX, double gatewayY)
+std::pair<double,double> LoRaNodeApp::generateUniformCircleCoordinates(double radius, double gatewayX, double gatewayY)
 {
     double randomValueRadius = uniform(0,(radius*radius));
     double randomTheta = uniform(0,2*M_PI);
@@ -83,7 +84,7 @@ std::pair<double,double> SimpleLoRaApp::generateUniformCircleCoordinates(double 
     return coordValues;
 }
 
-void SimpleLoRaApp::finish()
+void LoRaNodeApp::finish()
 {
     cModule *host = getContainingNode(this);
     StationaryMobility *mobility = check_and_cast<StationaryMobility *>(host->getSubmodule("mobility"));
@@ -96,7 +97,7 @@ void SimpleLoRaApp::finish()
     recordScalar("receivedADRCommands", receivedADRCommands);
 }
 
-void SimpleLoRaApp::handleMessage(cMessage *msg)
+void LoRaNodeApp::handleMessage(cMessage *msg)
 {
     if (msg->isSelfMessage()) {
         if (msg == sendMeasurements)
@@ -133,7 +134,7 @@ void SimpleLoRaApp::handleMessage(cMessage *msg)
     }
 }
 
-void SimpleLoRaApp::handleMessageFromLowerLayer(cMessage *msg)
+void LoRaNodeApp::handleMessageFromLowerLayer(cMessage *msg)
 {
     LoRaAppPacket *packet = check_and_cast<LoRaAppPacket *>(msg);
     if (simTime() >= getSimulation()->getWarmupPeriod())
@@ -155,7 +156,7 @@ void SimpleLoRaApp::handleMessageFromLowerLayer(cMessage *msg)
     }
 }
 
-bool SimpleLoRaApp::handleOperationStage(LifecycleOperation *operation, int stage, IDoneCallback *doneCallback)
+bool LoRaNodeApp::handleOperationStage(LifecycleOperation *operation, int stage, IDoneCallback *doneCallback)
 {
     Enter_Method_Silent();
 
@@ -163,7 +164,7 @@ bool SimpleLoRaApp::handleOperationStage(LifecycleOperation *operation, int stag
     return true;
 }
 
-void SimpleLoRaApp::sendJoinRequest()
+void LoRaNodeApp::sendJoinRequest()
 {
     LoRaAppPacket *request = new LoRaAppPacket("DataFrame");
     request->setKind(DATA);
@@ -201,7 +202,7 @@ void SimpleLoRaApp::sendJoinRequest()
     emit(LoRa_AppPacketSent, loRaSF);
 }
 
-void SimpleLoRaApp::increaseSFIfPossible()
+void LoRaNodeApp::increaseSFIfPossible()
 {
     if(loRaSF < 12) loRaSF++;
 }
