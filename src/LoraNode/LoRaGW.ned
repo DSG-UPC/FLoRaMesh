@@ -20,7 +20,7 @@ import inet.networklayer.common.InterfaceTable;
 import inet.networklayer.contract.INetworkLayer;
 import inet.linklayer.loopback.LoopbackInterface;
 import loranetwork.LoRa.LoRaGWNic;
-import loranetwork.LoRaApp.SimpleLoRaApp;
+import loranetwork.LoRaApp.LoRaNodeApp;
 import loranetwork.LoRa.PacketForwarder;
 import inet.linklayer.contract.IWiredNic;
 import inet.applications.contract.IUDPApp;

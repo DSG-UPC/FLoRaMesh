@@ -18,7 +18,7 @@ package loranetwork.LoraNode;
 import inet.mobility.static.StationaryMobility;
 import inet.networklayer.common.InterfaceTable;
 import loranetwork.LoRa.LoRaNic;
-import loranetwork.LoRaApp.SimpleLoRaApp;
+import loranetwork.LoRaApp.LoRaNodeApp;
 
 
 module LoRaNode
@@ -41,11 +41,11 @@ module LoRaNode
         LoRaNic: LoRaNic {
             @display("p=137,239");
         }
-        SimpleLoRaApp: SimpleLoRaApp {
+        LoRaNodeApp: LoRaNodeApp {
             @display("p=137,32");
         }
     connections allowunconnected:
 
-        SimpleLoRaApp.appOut --> LoRaNic.upperLayerIn;
-        LoRaNic.upperLayerOut --> SimpleLoRaApp.appIn;
+        LoRaNodeApp.appOut --> LoRaNic.upperLayerIn;
+        LoRaNic.upperLayerOut --> LoRaNodeApp.appIn;
 }

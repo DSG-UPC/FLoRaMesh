@@ -58,7 +58,7 @@ bool LoRaReceiver::computeIsReceptionPossible(const IListening *listening, const
         return true;
     }
     else {
-        SimpleLoRaApp *loRaApp = check_and_cast<SimpleLoRaApp *>(getParentModule()->getParentModule()->getSubmodule("SimpleLoRaApp"));
+        LoRaNodeApp *loRaApp = check_and_cast<LoRaNodeApp *>(getParentModule()->getParentModule()->getSubmodule("LoRaNodeApp"));
         if ( (loRaTransmission->getLoRaCF() == loRaApp->loRaCF && loRaTransmission->getLoRaBW() == loRaApp->loRaBW && loRaTransmission->getLoRaSF() == loRaApp->loRaSF))
         {
             return true;
@@ -238,7 +238,7 @@ const IListening *LoRaReceiver::createListening(const IRadio *radio, const simti
 {
     if(iAmGateway == false)
     {
-        SimpleLoRaApp *loRaApp = check_and_cast<SimpleLoRaApp *>(getParentModule()->getParentModule()->getParentModule()->getSubmodule("SimpleLoRaApp"));
+        LoRaNodeApp *loRaApp = check_and_cast<LoRaNodeApp *>(getParentModule()->getParentModule()->getParentModule()->getSubmodule("LoRaNodeApp"));
         return new LoRaBandListening(radio, startTime, endTime, startPosition, endPosition, loRaApp->loRaCF, loRaApp->loRaSF, loRaApp->loRaBW);
     }
     else return new LoRaBandListening(radio, startTime, endTime, startPosition, endPosition, LoRaCF, LoRaSF, LoRaBW);

@@ -28,7 +28,7 @@
 #include "LoRaReception.h"
 #include "LoRaBandListening.h"
 #include "LoRa/LoRaRadio.h"
-#include "LoRaApp/SimpleLoRaApp.h"
+#include "LoRaApp/LoRaNodeApp.h"
 #include "LoRa/LoRaMac.h"
 #include "LoRa/LoRaGWMac.h"
 
