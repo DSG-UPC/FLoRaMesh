@@ -13,8 +13,8 @@
 // along with this program.  If not, see http://www.gnu.org/licenses/.
 // 
 
-#ifndef __LORA_OMNET_SIMPLELoRaMotoGWApp_H_
-#define __LORA_OMNET_SIMPLELoRaMotoGWApp_H_
+#ifndef __LORA_OMNET_LORAMOTOGWAPP_H_
+#define __LORA_OMNET_LORAMOTOGWAPP_H_
 
 #include <omnetpp.h>
 #include "inet/common/lifecycle/ILifecycle.h"
@@ -32,7 +32,7 @@ namespace inet {
 /**
  * TODO - Generated class
  */
-class INET_API SimpleLoRaMotoGWApp : public cSimpleModule, public ILifecycle
+class INET_API LoRaMotoGWApp : public cSimpleModule, public ILifecycle
 {
     protected:
         virtual void initialize(int stage) override;
@@ -70,7 +70,7 @@ class INET_API SimpleLoRaMotoGWApp : public cSimpleModule, public ILifecycle
         void increaseSFIfPossible();
 
     public:
-        SimpleLoRaMotoGWApp() {}
+        LoRaMotoGWApp() {}
         simsignal_t LoRa_AppPacketSent;
         //LoRa physical layer parameters
         double loRaTP;

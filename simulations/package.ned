@@ -24,7 +24,7 @@ network LoRaNetworkTest
         loRaNodes[numberOfNodes]: LoRaNode {
             @display("p=83.664,233.856");
         }
-        loRaGW[numberOfGateways]: LoRaGW {
+        loRaGW[numberOfGateways]: LoRaMotoGW {
             @display("p=83.664,150.192;is=s");
         }
         LoRaMedium: LoRaMedium {

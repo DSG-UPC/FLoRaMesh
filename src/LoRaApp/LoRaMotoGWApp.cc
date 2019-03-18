@@ -13,13 +13,14 @@
 // along with this program.  If not, see http://www.gnu.org/licenses/.
 // 
 
-#include "SimpleLoRaMotoGWApp.h"
+#include "LoRaMotoGWApp.h"
+
 #include "inet/mobility/static/StationaryMobility.h"
 namespace inet {
 
-Define_Module(SimpleLoRaMotoGWApp);
+Define_Module(LoRaMotoGWApp);
 
-void SimpleLoRaMotoGWApp::initialize(int stage)
+void LoRaMotoGWApp::initialize(int stage)
 {
     cSimpleModule::initialize(stage);
     if (stage == INITSTAGE_LOCAL) {
@@ -68,7 +69,7 @@ void SimpleLoRaMotoGWApp::initialize(int stage)
     }
 }
 
-std::pair<double,double> SimpleLoRaMotoGWApp::generateUniformCircleCoordinates(double radius, double gatewayX, double gatewayY)
+std::pair<double,double> LoRaMotoGWApp::generateUniformCircleCoordinates(double radius, double gatewayX, double gatewayY)
 {
 //    double randomValueRadius = uniform(0,(radius*radius));
 //    double randomTheta = uniform(0,2*M_PI);
@@ -83,7 +84,7 @@ std::pair<double,double> SimpleLoRaMotoGWApp::generateUniformCircleCoordinates(d
 //    return coordValues;
 }
 
-void SimpleLoRaMotoGWApp::finish()
+void LoRaMotoGWApp::finish()
 {
 //    cModule *host = getContainingNode(this);
 //    StationaryMobility *mobility = check_and_cast<StationaryMobility *>(host->getSubmodule("mobility"));
@@ -96,7 +97,7 @@ void SimpleLoRaMotoGWApp::finish()
 //    recordScalar("receivedADRCommands", receivedADRCommands);
 }
 
-void SimpleLoRaMotoGWApp::handleMessage(cMessage *msg)
+void LoRaMotoGWApp::handleMessage(cMessage *msg)
 {
       delete msg;
 //    if (msg->isSelfMessage()) {
@@ -134,7 +135,7 @@ void SimpleLoRaMotoGWApp::handleMessage(cMessage *msg)
 //    }
 }
 
-void SimpleLoRaMotoGWApp::handleMessageFromLowerLayer(cMessage *msg)
+void LoRaMotoGWApp::handleMessageFromLowerLayer(cMessage *msg)
 {
     delete msg;
 //A    LoRaAppPacket *packet = check_and_cast<LoRaAppPacket *>(msg);
@@ -157,7 +158,7 @@ void SimpleLoRaMotoGWApp::handleMessageFromLowerLayer(cMessage *msg)
 //A    }
 }
 
-bool SimpleLoRaMotoGWApp::handleOperationStage(LifecycleOperation *operation, int stage, IDoneCallback *doneCallback)
+bool LoRaMotoGWApp::handleOperationStage(LifecycleOperation *operation, int stage, IDoneCallback *doneCallback)
 {
 //    Enter_Method_Silent();
 //
@@ -166,7 +167,7 @@ bool SimpleLoRaMotoGWApp::handleOperationStage(LifecycleOperation *operation, in
     return true;
 }
 
-void SimpleLoRaMotoGWApp::sendJoinRequest()
+void LoRaMotoGWApp::sendJoinRequest()
 {
     LoRaAppPacket *request = new LoRaAppPacket("DataFrame");
 //    request->setKind(DATA);
@@ -205,7 +206,7 @@ void SimpleLoRaMotoGWApp::sendJoinRequest()
     emit(LoRa_AppPacketSent, loRaSF);
 }
 
-void SimpleLoRaMotoGWApp::increaseSFIfPossible()
+void LoRaMotoGWApp::increaseSFIfPossible()
 {
     if(loRaSF < 12) loRaSF++;
 }

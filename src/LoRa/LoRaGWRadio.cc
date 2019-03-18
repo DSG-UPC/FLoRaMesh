@@ -225,7 +225,7 @@ void LoRaGWRadio::endReception(cMessage *timer)
         auto transmission = radioFrame->getTransmission();
 // TODO: this would draw twice from the random number generator in isReceptionSuccessful: auto isReceptionSuccessful = medium->isReceptionSuccessful(this, transmission, part);
         auto isReceptionSuccessful = medium->getReceptionDecision(this, radioFrame->getListening(), transmission, part)->isReceptionSuccessful();
-        EV_INFO << "LoRaGWRadio Reception ended: " << (isReceptionSuccessful ? "successfully" : "unsuccessfully") << " for " << (IRadioFrame *)radioFrame << " " << IRadioSignal::getSignalPartName(part) << " as " << reception << endl;
+        EV_INFO << "LoRaGWRadio Reception ended (B): " << (isReceptionSuccessful ? "successfully" : "unsuccessfully") << " for " << (IRadioFrame *)radioFrame << " " << IRadioSignal::getSignalPartName(part) << " as " << reception << endl;
         if(isReceptionSuccessful) {
             auto macFrame = medium->receivePacket(this, radioFrame);
             emit(LayeredProtocolBase::packetSentToUpperSignal, macFrame);
@@ -237,8 +237,15 @@ void LoRaGWRadio::endReception(cMessage *timer)
         receptionTimer = nullptr;
         if(iAmGateway) concurrentReceptions.remove(timer);
     }
-    else
+    else {
         EV_INFO << "LoRaGWRadio Reception ended: ignoring " << (IRadioFrame *)radioFrame << " " << IRadioSignal::getSignalPartName(part) << " as " << reception << endl;
+        EV_INFO << "LoRaGWRadio Reception ended: ignoring because timer == receptionTimer: " << timer << " == " << receptionTimer << endl;
+        EV_INFO << "LoRaGWRadio Reception ended: ignoring because isReceiverMode(radioMode): " << isReceiverMode(radioMode) << endl;
+        EV_INFO << "LoRaGWRadio Reception ended: ignoring because arrival->getEndTime() == simTime(): " << arrival->getEndTime() << " == " << simTime() << endl;
+        EV_INFO << "LoRaGWRadio Reception ended: ignoring because iAmTransmiting: " << iAmTransmiting << endl;
+    }
+
+
     //updateTransceiverState();
     //updateTransceiverPart();
     radioMode = RADIO_MODE_TRANSCEIVER;

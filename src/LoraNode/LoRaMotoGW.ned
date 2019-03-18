@@ -20,7 +20,7 @@ import inet.networklayer.common.InterfaceTable;
 import inet.networklayer.contract.INetworkLayer;
 import inet.linklayer.loopback.LoopbackInterface;
 import loranetwork.LoRa.LoRaMotoGWNic;
-import loranetwork.LoRaApp.SimpleLoRaMotoGWApp;
+import loranetwork.LoRaApp.LoRaMotoGWApp;
 import inet.linklayer.contract.IWiredNic;
 import inet.applications.contract.IUDPApp;
 import inet.transportlayer.contract.IUDP;
@@ -47,10 +47,10 @@ module LoRaMotoGW
         LoRaMotoGWNic: LoRaMotoGWNic {
             @display("p=163.56,367.728");
         }
-        SimpleLoRaMotoGWApp: SimpleLoRaMotoGWApp {
+        LoRaMotoGWApp: LoRaMotoGWApp {
             @display("p=163.56,152.28");
         }
     connections allowunconnected:
-        SimpleLoRaMotoGWApp.appOut --> LoRaMotoGWNic.upperLayerIn;
-        LoRaMotoGWNic.upperLayerOut --> SimpleLoRaMotoGWApp.appIn;
+        LoRaMotoGWApp.appOut --> LoRaMotoGWNic.upperLayerIn;
+        LoRaMotoGWNic.upperLayerOut --> LoRaMotoGWApp.appIn;
 }

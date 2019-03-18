@@ -18,7 +18,7 @@ package loranetwork.LoRaApp;
 //
 // TODO auto-generated module
 //
-simple SimpleLoRaMotoGWApp
+simple LoRaMotoGWApp
 {
     parameters:
         @signal[LoRa_AppPacketSent](type=long); // optional
@@ -32,7 +32,7 @@ simple SimpleLoRaMotoGWApp
         double initialLoRaBW @unit(Hz) = default(125kHz);
         int initialLoRaCR = default(4);
         bool initialUseHeader = default(true);
-    	@class(inet::SimpleLoRaMotoGWApp);
+    	@class(inet::LoRaMotoGWApp);
     	bool evaluateADRinNode = default(false);
     gates:
         output appOut @labels(LoRaAppPacket/down);
