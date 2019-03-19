@@ -48,6 +48,7 @@ class INET_API LoRaMotoGWApp : public cSimpleModule, public ILifecycle
 
         int numberOfPacketsToSend;
         int sentPackets;
+        int receivedPackets;
         int receivedADRCommands;
         int lastSentMeasurement;
         simtime_t timeToFirstPacket;
@@ -60,6 +61,8 @@ class INET_API LoRaMotoGWApp : public cSimpleModule, public ILifecycle
         cOutVector sfVector;
         cOutVector tpVector;
 
+        //history of receivedPackets
+        cOutVector receivedPacketsStats;
 
         //variables to control ADR
         bool evaluateADRinNode;
