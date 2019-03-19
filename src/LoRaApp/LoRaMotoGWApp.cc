@@ -14,6 +14,8 @@
 // 
 
 #include "LoRaMotoGWApp.h"
+#include "../LoRa/LoRaMac.h"
+#include "../LoRa/LoRaMacFrame_m.h"
 
 #include "inet/mobility/static/StationaryMobility.h"
 namespace inet {
@@ -87,7 +89,12 @@ void LoRaMotoGWApp::handleMessage(cMessage *msg)
 
 void LoRaMotoGWApp::handleMessageFromLowerLayer(cMessage *msg)
 {
-    // LoRaAppPacket *packet = check_and_cast<LoRaAppPacket *>(msg);
+    LoRaMacFrame *frame = check_and_cast<LoRaMacFrame *>(msg);
+
+    DevAddr transmitter = frame->getTransmitterAddress();
+    EV << transmitter << endl;
+    EV << transmitter.str() << endl;
+    EV << transmitter.getInt() << endl;
 
     if (simTime() >= getSimulation()->getWarmupPeriod()) {
         //Process the message

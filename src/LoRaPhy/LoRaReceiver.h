@@ -31,6 +31,7 @@
 #include "LoRaApp/LoRaNodeApp.h"
 #include "LoRa/LoRaMac.h"
 #include "LoRa/LoRaGWMac.h"
+#include "LoRa/LoRaMotoGWMac.h"
 
 #include "LoRaRadioControlInfo_m.h"
 
