@@ -28,8 +28,8 @@ void LoRaMotoGWRadio::initialize(int stage)
     iAmGateway = par("iAmGateway").boolValue();
     if (stage == INITSTAGE_LAST) {
         setRadioMode(RADIO_MODE_TRANSCEIVER);
-        LoRaMotoGWRadioReceptionStarted = registerSignal("LoRaGWRadioReceptionStarted");
-        LoRaMotoGWRadioReceptionFinishedCorrect = registerSignal("LoRaGWRadioReceptionFinishedCorrect");
+        LoRaMotoGWRadioReceptionStarted = registerSignal("LoRaMotoGWRadioReceptionStarted");
+        LoRaMotoGWRadioReceptionFinishedCorrect = registerSignal("LoRaMotoGWRadioReceptionFinishedCorrect");
         LoRaMotoGWRadioReceptionStarted_counter = 0;
         LoRaMotoGWRadioReceptionFinishedCorrect_counter = 0;
         iAmTransmiting = false;

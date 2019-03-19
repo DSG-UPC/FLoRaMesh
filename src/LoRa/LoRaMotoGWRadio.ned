@@ -81,5 +81,5 @@ module LoRaMotoGWRadio extends FlatRadioBase
         
         bool iAmGateway = default(true);
 
-        @class(inet::physicallayer::LoRaGWRadio); //originally it was @class(Radio);
+        @class(inet::physicallayer::LoRaMotoGWRadio); //originally it was @class(Radio);
 }

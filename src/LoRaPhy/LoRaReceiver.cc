@@ -32,7 +32,8 @@ void LoRaReceiver::initialize(int stage)
     if (stage == INITSTAGE_LOCAL)
     {
         snirThreshold = math::dB2fraction(par("snirThreshold"));
-        if(strcmp(getParentModule()->getClassName(), "inet::physicallayer::LoRaGWRadio") == 0)
+        if(strcmp(getParentModule()->getClassName(), "inet::physicallayer::LoRaGWRadio") == 0 ||
+           strcmp(getParentModule()->getClassName(), "inet::physicallayer::LoRaMotoGWRadio") == 0 )
         {
             iAmGateway = true;
         } else iAmGateway = false;

@@ -31,6 +31,7 @@ namespace inet {
 namespace physicallayer {
 class INET_API LoRaMedium : public cSimpleModule, public cListener, public IRadioMedium
 {
+    friend class LoRaMotoGWRadio;
     friend class LoRaGWRadio;
     friend class LoRaRadio;
     protected:
