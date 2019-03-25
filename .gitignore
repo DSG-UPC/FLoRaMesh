@@ -35,6 +35,7 @@ src/Makefile
 
 .settings/*
 simulations/.qtenvrc
+simulations/.tkenvlog
 simulations/**/results
 simulations/**/.tkenvrc
 simulations/**/valgrind.out
