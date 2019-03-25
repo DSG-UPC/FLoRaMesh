@@ -120,7 +120,7 @@ void LoRaMac::initialize(int stage)
         WATCH(numReceivedBroadcast);
     }
     else if (stage == INITSTAGE_LINK_LAYER)
-        radio->setRadioMode(IRadio::RADIO_MODE_SLEEP);
+        radio->setRadioMode(IRadio::RADIO_MODE_RECEIVER);
 }
 
 void LoRaMac::finish()
@@ -303,20 +303,20 @@ void LoRaMac::receiveSignal(cComponent *source, simsignal_t signalID, long value
     if (signalID == IRadio::receptionStateChangedSignal) {
         IRadio::ReceptionState newRadioReceptionState = (IRadio::ReceptionState)value;
         if (receptionState == IRadio::RECEPTION_STATE_RECEIVING) {
-            radio->setRadioMode(IRadio::RADIO_MODE_SLEEP);
+            radio->setRadioMode(IRadio::RADIO_MODE_RECEIVER);
         }
         receptionState = newRadioReceptionState;
         handleWithFsm(mediumStateChange);
     }
     else if (signalID == LoRaRadio::droppedPacket) {
-        radio->setRadioMode(IRadio::RADIO_MODE_SLEEP);
+        radio->setRadioMode(IRadio::RADIO_MODE_RECEIVER);
         handleWithFsm(droppedPacket);
     }
     else if (signalID == IRadio::transmissionStateChangedSignal) {
         IRadio::TransmissionState newRadioTransmissionState = (IRadio::TransmissionState)value;
         if (transmissionState == IRadio::TRANSMISSION_STATE_TRANSMITTING && newRadioTransmissionState == IRadio::TRANSMISSION_STATE_IDLE) {
             handleWithFsm(endTransmission);
-            radio->setRadioMode(IRadio::RADIO_MODE_SLEEP);
+            radio->setRadioMode(IRadio::RADIO_MODE_RECEIVER);
         }
         transmissionState = newRadioTransmissionState;
     }
@@ -431,7 +431,7 @@ void LoRaMac::turnOffReceiver()
 {
     LoRaRadio *loraRadio;
     loraRadio = check_and_cast<LoRaRadio *>(radio);
-    loraRadio->setRadioMode(IRadio::RADIO_MODE_SLEEP);
+    loraRadio->setRadioMode(IRadio::RADIO_MODE_RECEIVER);
 }
 
 DevAddr LoRaMac::getAddress()
