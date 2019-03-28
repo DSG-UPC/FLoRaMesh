@@ -51,6 +51,7 @@ void LoRaNodeApp::initialize(int stage)
         scheduleAt(simTime()+timeToFirstPacket, sendMeasurements);
 
         sentPackets = 0;
+        receivedPackets = 0;
         receivedADRCommands = 0;
         numberOfPacketsToSend = par("numberOfPacketsToSend");
 
@@ -66,6 +67,8 @@ void LoRaNodeApp::initialize(int stage)
         evaluateADRinNode = par("evaluateADRinNode");
         sfVector.setName("SF Vector");
         tpVector.setName("TP Vector");
+
+
     }
 }
 
@@ -94,6 +97,7 @@ void LoRaNodeApp::finish()
     recordScalar("finalTP", loRaTP);
     recordScalar("finalSF", loRaSF);
     recordScalar("sentPackets", sentPackets);
+    recordScalar("receivedPackets", receivedPackets);
     recordScalar("receivedADRCommands", receivedADRCommands);
 }
 
@@ -136,24 +140,29 @@ void LoRaNodeApp::handleMessage(cMessage *msg)
 
 void LoRaNodeApp::handleMessageFromLowerLayer(cMessage *msg)
 {
+    receivedPackets++;
+
     LoRaAppPacket *packet = check_and_cast<LoRaAppPacket *>(msg);
-    if (simTime() >= getSimulation()->getWarmupPeriod())
-        receivedADRCommands++;
-    if(evaluateADRinNode)
-    {
-        ADR_ACK_CNT = 0;
-        if(packet->getMsgType() == TXCONFIG)
-        {
-            if(packet->getOptions().getLoRaTP() != -1)
-            {
-                loRaTP = packet->getOptions().getLoRaTP();
-            }
-            if(packet->getOptions().getLoRaSF() != -1)
-            {
-                loRaSF = packet->getOptions().getLoRaSF();
-            }
-        }
-    }
+
+    bubble("LoRa packet received!");
+
+//    if (simTime() >= getSimulation()->getWarmupPeriod())
+//        receivedADRCommands++;
+//    if(evaluateADRinNode)
+//    {
+//        ADR_ACK_CNT = 0;
+//        if(packet->getMsgType() == TXCONFIG)
+//        {
+//            if(packet->getOptions().getLoRaTP() != -1)
+//            {
+//                loRaTP = packet->getOptions().getLoRaTP();
+//            }
+//            if(packet->getOptions().getLoRaSF() != -1)
+//            {
+//                loRaSF = packet->getOptions().getLoRaSF();
+//            }
+//        }
+//    }
 }
 
 bool LoRaNodeApp::handleOperationStage(LifecycleOperation *operation, int stage, IDoneCallback *doneCallback)

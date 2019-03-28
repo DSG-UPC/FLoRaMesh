@@ -185,25 +185,57 @@ void LoRaMac::handleUpperPacket(cPacket *msg)
 
 void LoRaMac::handleLowerPacket(cPacket *msg)
 {
-    if( (fsm.getState() == RECEIVING_1) || (fsm.getState() == RECEIVING_2)) handleWithFsm(msg);
-    else delete msg;
+    EV << "lower packet received in state " << fsm.getState() << endl;
+    // if ((fsm.getState() == RECEIVING_1) || (fsm.getState() == RECEIVING_2)) {
+    if ((fsm.getState() == RECEIVING_1) || (fsm.getState() == RECEIVING_2) ||
+        (fsm.getState() == IDLE)) {
+        EV_INFO << "lower packet received, handling with handleWithFsm()" << endl;
+        handleWithFsm(msg);
+    }
+    else {
+        delete msg;
+    }
 }
 
 void LoRaMac::handleWithFsm(cMessage *msg)
 {
     LoRaMacFrame *frame = dynamic_cast<LoRaMacFrame*>(msg);
+
+    EV_INFO << "handling packet with handleWithFsm(): " << fsm << endl;
+
     FSMA_Switch(fsm)
     {
+
         FSMA_State(IDLE)
         {
+            EV_INFO << "handling packet with handleWithFsm(): IDLE" << endl;
             FSMA_Enter(turnOffReceiver());
             FSMA_Event_Transition(Idle-Transmit,
                                   isUpperMessage(msg),
                                   TRANSMIT,
             );
+            FSMA_Event_Transition(Receive-Unicast,
+                                  isLowerMessage(msg) && isForUs(frame),
+                                  IDLE,
+                            sendUp(decapsulate(check_and_cast<LoRaMacFrame *>(frame)));
+                            numReceived++;
+                            cancelEvent(endDelay_1);
+                            cancelEvent(endListening_1);
+                            cancelEvent(endDelay_2);
+                            cancelEvent(endListening_2);
+                        );
+//            FSMA_Event_Transition(Receive2-Unicast,
+//                                  isLowerMessage(msg) && isForUs(frame),
+//                                  IDLE,
+//                            sendUp(decapsulate(check_and_cast<LoRaMacFrame *>(frame)));
+//                            numReceived++;
+//                            cancelEvent(endListening_2);
+//                        );
         }
+
         FSMA_State(TRANSMIT)
         {
+            EV_INFO << "handling packet with handleWithFsm(): TRANSMIT" << endl;
             FSMA_Enter(sendDataFrame(getCurrentTransmission()));
             FSMA_Event_Transition(Transmit-Wait_Delay_1,
                                   msg == endTransmission,
@@ -212,16 +244,20 @@ void LoRaMac::handleWithFsm(cMessage *msg)
                 numSent++;
             );
         }
+
         FSMA_State(WAIT_DELAY_1)
         {
+            EV_INFO << "handling packet with handleWithFsm(): WAIT_DELAY_1" << endl;
             FSMA_Enter(turnOffReceiver());
             FSMA_Event_Transition(Wait_Delay_1-Listening_1,
                                   msg == endDelay_1 || endDelay_1->isScheduled() == false,
                                   LISTENING_1,
             );
         }
+
         FSMA_State(LISTENING_1)
         {
+            EV_INFO << "handling packet with handleWithFsm(): LISTENING_1" << endl;
             FSMA_Enter(turnOnReceiver());
             FSMA_Event_Transition(Listening_1-Wait_Delay_2,
                                   msg == endListening_1 || endListening_1->isScheduled() == false,
@@ -232,8 +268,10 @@ void LoRaMac::handleWithFsm(cMessage *msg)
                                   RECEIVING_1,
             );
         }
+
         FSMA_State(RECEIVING_1)
         {
+            EV_INFO << "handling packet with handleWithFsm(): RECEIVING_1" << endl;
             FSMA_Event_Transition(Receive-Unicast-Not-For,
                                   isLowerMessage(msg) && !isForUs(frame),
                                   LISTENING_1,
@@ -248,22 +286,27 @@ void LoRaMac::handleWithFsm(cMessage *msg)
                 cancelEvent(endDelay_2);
                 cancelEvent(endListening_2);
             );
+
             FSMA_Event_Transition(Receive-BelowSensitivity,
                                   msg == droppedPacket,
                                   LISTENING_1,
             );
 
         }
+
         FSMA_State(WAIT_DELAY_2)
         {
+            EV_INFO << "handling packet with handleWithFsm(): WAIT_DELAY_2" << endl;
             FSMA_Enter(turnOffReceiver());
             FSMA_Event_Transition(Wait_Delay_2-Listening_2,
                                   msg == endDelay_2 || endDelay_2->isScheduled() == false,
                                   LISTENING_2,
             );
         }
+
         FSMA_State(LISTENING_2)
         {
+            EV_INFO << "handling packet with handleWithFsm(): LISTENING_2" << endl;
             FSMA_Enter(turnOnReceiver());
             FSMA_Event_Transition(Listening_2-idle,
                                   msg == endListening_2 || endListening_2->isScheduled() == false,
@@ -274,8 +317,10 @@ void LoRaMac::handleWithFsm(cMessage *msg)
                                   RECEIVING_2,
             );
         }
+
         FSMA_State(RECEIVING_2)
         {
+            EV_INFO << "handling packet with handleWithFsm(): RECEIVING_2" << endl;
             FSMA_Event_Transition(Receive2-Unicast-Not-For,
                                   isLowerMessage(msg) && !isForUs(frame),
                                   LISTENING_2,
@@ -292,7 +337,6 @@ void LoRaMac::handleWithFsm(cMessage *msg)
                                   msg == droppedPacket,
                                   LISTENING_2,
             );
-
         }
     }
 }
@@ -417,7 +461,8 @@ bool LoRaMac::isBroadcast(LoRaMacFrame *frame)
 
 bool LoRaMac::isForUs(LoRaMacFrame *frame)
 {
-    return frame->getReceiverAddress() == address;
+    // return frame->getReceiverAddress() == address;
+    return true;
 }
 
 void LoRaMac::turnOnReceiver()
