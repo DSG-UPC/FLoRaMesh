@@ -34,6 +34,7 @@ simple LoRaNodeApp
         bool initialUseHeader = default(true);
         @class(inet::LoRaNodeApp);
         bool evaluateADRinNode = default(false);
+        int numberOfNodes;
     gates:
         output appOut @labels(LoRaAppPacket/down);
         input appIn @labels(LoRaAppPacket/up);

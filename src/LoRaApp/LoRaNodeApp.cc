@@ -47,8 +47,8 @@ void LoRaNodeApp::initialize(int stage)
         } while(timeToFirstPacket <= 5);
 
         //timeToFirstPacket = par("timeToFirstPacket");
-        sendMeasurements = new cMessage("sendMeasurements");
-        scheduleAt(simTime()+timeToFirstPacket, sendMeasurements);
+        selfDataPacket = new cMessage("selfDataPacket");
+        scheduleAt(simTime()+timeToFirstPacket, selfDataPacket);
 
         sentPackets = 0;
         receivedPackets = 0;
@@ -68,7 +68,8 @@ void LoRaNodeApp::initialize(int stage)
         sfVector.setName("SF Vector");
         tpVector.setName("TP Vector");
 
-
+        //Current network settings
+        numberOfNodes = par("numberOfNodes");
     }
 }
 
@@ -104,14 +105,17 @@ void LoRaNodeApp::finish()
 void LoRaNodeApp::handleMessage(cMessage *msg)
 {
     if (msg->isSelfMessage()) {
-        if (msg == sendMeasurements)
-        {
-            sendJoinRequest();
+
+        if (msg == selfDataPacket) {
+
+            sendDataPacket();
+
             if (simTime() >= getSimulation()->getWarmupPeriod())
                 sentPackets++;
+
             delete msg;
-            if(numberOfPacketsToSend == 0 || sentPackets < numberOfPacketsToSend)
-            {
+
+            if (numberOfPacketsToSend == 0 || sentPackets < numberOfPacketsToSend) {
                 double time;
                 if(loRaSF == 7) time = 7.808;
                 if(loRaSF == 8) time = 13.9776;
@@ -119,12 +123,14 @@ void LoRaNodeApp::handleMessage(cMessage *msg)
                 if(loRaSF == 10) time = 49.3568;
                 if(loRaSF == 11) time = 85.6064;
                 if(loRaSF == 12) time = 171.2128;
-                do {
-                    timeToNextPacket = par("timeToNextPacket");
-                    //if(timeToNextPacket < 3) error("Time to next packet must be grater than 3");
-                } while(timeToNextPacket <= time);
-                sendMeasurements = new cMessage("sendMeasurements");
-                scheduleAt(simTime() + timeToNextPacket, sendMeasurements);
+
+            do {
+                //(ToDo) Warning: too small a par("timeToNextPacket") might cause a lock here
+                timeToNextPacket = par("timeToNextPacket");
+            } while(timeToNextPacket <= time);
+
+            selfDataPacket = new cMessage("selfDataPacket");
+            scheduleAt(simTime() + timeToNextPacket, selfDataPacket);
             }
         }
     }
@@ -132,9 +138,6 @@ void LoRaNodeApp::handleMessage(cMessage *msg)
     {
         handleMessageFromLowerLayer(msg);
         delete msg;
-        //cancelAndDelete(sendMeasurements);
-        //sendMeasurements = new cMessage("sendMeasurements");
-        //scheduleAt(simTime(), sendMeasurements);
     }
 }
 
@@ -173,53 +176,13 @@ bool LoRaNodeApp::handleOperationStage(LifecycleOperation *operation, int stage,
     return true;
 }
 
-void LoRaNodeApp::sendJoinRequest()
-{
-    LoRaAppPacket *request = new LoRaAppPacket("DataFrame");
-    request->setKind(DATA);
-    lastSentMeasurement = rand();
-    request->setSampleMeasurement(lastSentMeasurement);
-
-    if(evaluateADRinNode && sendNextPacketWithADRACKReq)
-    {
-        request->getOptions().setADRACKReq(true);
-        sendNextPacketWithADRACKReq = false;
-    }
-
-    //add LoRa control info
-    LoRaMacControlInfo *cInfo = new LoRaMacControlInfo;
-    cInfo->setLoRaTP(loRaTP);
-    cInfo->setLoRaCF(loRaCF);
-    cInfo->setLoRaSF(loRaSF);
-    cInfo->setLoRaBW(loRaBW);
-    cInfo->setLoRaCR(loRaCR);
-
-    request->setControlInfo(cInfo);
-    sfVector.record(loRaSF);
-    tpVector.record(loRaTP);
-    send(request, "appOut");
-    if(evaluateADRinNode)
-    {
-        ADR_ACK_CNT++;
-        if(ADR_ACK_CNT == ADR_ACK_LIMIT) sendNextPacketWithADRACKReq = true;
-        if(ADR_ACK_CNT >= ADR_ACK_LIMIT + ADR_ACK_DELAY)
-        {
-            ADR_ACK_CNT = 0;
-            increaseSFIfPossible();
-        }
-    }
-    emit(LoRa_AppPacketSent, loRaSF);
-}
-
 void LoRaNodeApp::sendDataPacket()
 {
     LoRaAppPacket *dataPacket = new LoRaAppPacket("DataFrame");
     dataPacket->setKind(DATA);
 
-    int dataValue = rand();
-    int dest = rand(numberOfNodes);
-
-    dataPacket->setSampleMeasurement(dataValue);
+    int dataInt = 12345; //rand();
+    dataPacket->setSampleMeasurement(dataInt);
 
     //add LoRa control info
     LoRaMacControlInfo *cInfo = new LoRaMacControlInfo;
@@ -228,22 +191,14 @@ void LoRaNodeApp::sendDataPacket()
     cInfo->setLoRaSF(loRaSF);
     cInfo->setLoRaBW(loRaBW);
     cInfo->setLoRaCR(loRaCR);
-    cInfo->setDest(dest);
 
     dataPacket->setControlInfo(cInfo);
+
     sfVector.record(loRaSF);
     tpVector.record(loRaTP);
+
     send(dataPacket, "appOut");
-    if(evaluateADRinNode)
-    {
-        ADR_ACK_CNT++;
-        if(ADR_ACK_CNT == ADR_ACK_LIMIT) sendNextPacketWithADRACKReq = true;
-        if(ADR_ACK_CNT >= ADR_ACK_LIMIT + ADR_ACK_DELAY)
-        {
-            ADR_ACK_CNT = 0;
-            increaseSFIfPossible();
-        }
-    }
+
     emit(LoRa_AppPacketSent, loRaSF);
 }
 

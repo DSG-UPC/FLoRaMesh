@@ -56,7 +56,7 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         simtime_t timeToNextPacket;
 
         cMessage *configureLoRaParameters;
-        cMessage *sendMeasurements;
+        cMessage *selfDataPacket;
 
         //history of sent packets;
         cOutVector sfVector;
@@ -70,6 +70,9 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         int ADR_ACK_DELAY = 32; //32;
         bool sendNextPacketWithADRACKReq = false;
         void increaseSFIfPossible();
+
+        //General network variables
+        int numberOfNodes;
 
     public:
         LoRaNodeApp() {}
