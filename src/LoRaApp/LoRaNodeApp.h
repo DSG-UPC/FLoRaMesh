@@ -44,6 +44,7 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         void handleMessageFromLowerLayer(cMessage *msg);
         std::pair<double,double> generateUniformCircleCoordinates(double radius, double gatewayX, double gatewayY);
         void sendJoinRequest();
+        void sendDataPacket();
         void sendDownMgmtPacket();
 
         int numberOfPacketsToSend;

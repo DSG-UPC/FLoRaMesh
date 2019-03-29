@@ -211,6 +211,42 @@ void LoRaNodeApp::sendJoinRequest()
     emit(LoRa_AppPacketSent, loRaSF);
 }
 
+void LoRaNodeApp::sendDataPacket()
+{
+    LoRaAppPacket *dataPacket = new LoRaAppPacket("DataFrame");
+    dataPacket->setKind(DATA);
+
+    int dataValue = rand();
+    int dest = rand(numberOfNodes);
+
+    dataPacket->setSampleMeasurement(dataValue);
+
+    //add LoRa control info
+    LoRaMacControlInfo *cInfo = new LoRaMacControlInfo;
+    cInfo->setLoRaTP(loRaTP);
+    cInfo->setLoRaCF(loRaCF);
+    cInfo->setLoRaSF(loRaSF);
+    cInfo->setLoRaBW(loRaBW);
+    cInfo->setLoRaCR(loRaCR);
+    cInfo->setDest(dest);
+
+    dataPacket->setControlInfo(cInfo);
+    sfVector.record(loRaSF);
+    tpVector.record(loRaTP);
+    send(dataPacket, "appOut");
+    if(evaluateADRinNode)
+    {
+        ADR_ACK_CNT++;
+        if(ADR_ACK_CNT == ADR_ACK_LIMIT) sendNextPacketWithADRACKReq = true;
+        if(ADR_ACK_CNT >= ADR_ACK_LIMIT + ADR_ACK_DELAY)
+        {
+            ADR_ACK_CNT = 0;
+            increaseSFIfPossible();
+        }
+    }
+    emit(LoRa_AppPacketSent, loRaSF);
+}
+
 void LoRaNodeApp::increaseSFIfPossible()
 {
     if(loRaSF < 12) loRaSF++;
