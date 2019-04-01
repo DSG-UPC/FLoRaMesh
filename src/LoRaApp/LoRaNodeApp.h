@@ -74,6 +74,12 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         //General network variables
         int numberOfNodes;
 
+        //Routing variables
+        int numberOfHops;
+
+        //Node info
+        int nodeId;
+
     public:
         LoRaNodeApp() {}
         simsignal_t LoRa_AppPacketSent;

@@ -41,4 +41,5 @@ packet LoRaAppPacket {
     LoRaOptions options;
     int source;
     int addressee;
+    int hops;
 }

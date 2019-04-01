@@ -70,6 +70,12 @@ void LoRaNodeApp::initialize(int stage)
 
         //Current network settings
         numberOfNodes = par("numberOfNodes");
+
+        //Routing variables
+        numberOfHops = par("numberOfHops");
+
+        //Node identifier
+        nodeId = getContainingNode(this)->getIndex();
     }
 }
 
@@ -149,23 +155,43 @@ void LoRaNodeApp::handleMessageFromLowerLayer(cMessage *msg)
 
     bubble("LoRa packet received!");
 
-//    if (simTime() >= getSimulation()->getWarmupPeriod())
-//        receivedADRCommands++;
-//    if(evaluateADRinNode)
-//    {
-//        ADR_ACK_CNT = 0;
-//        if(packet->getMsgType() == TXCONFIG)
-//        {
-//            if(packet->getOptions().getLoRaTP() != -1)
-//            {
-//                loRaTP = packet->getOptions().getLoRaTP();
-//            }
-//            if(packet->getOptions().getLoRaSF() != -1)
-//            {
-//                loRaSF = packet->getOptions().getLoRaSF();
-//            }
-//        }
-//    }
+    //Check if the packet if for the current node
+    if (packet->getAddressee() == nodeId) {
+        bubble("For me!");
+        //delete (msg);
+    }
+    else {
+            bubble("For somebody else!");
+            if ( packet->getHops() > 0 ) {
+                bubble("Re-sending it!");
+
+                LoRaAppPacket *dataPacket = new LoRaAppPacket("DataFrame");
+                dataPacket->setKind(DATA);
+
+                dataPacket->setDataInt(packet->getDataInt());
+
+                dataPacket->setSource(nodeId);
+                dataPacket->setAddressee(packet->getAddressee());
+
+                dataPacket->setHops(packet->getHops() -1 );
+
+                LoRaMacControlInfo *cInfo = new LoRaMacControlInfo;
+                cInfo->setLoRaTP(loRaTP);
+                cInfo->setLoRaCF(loRaCF);
+                cInfo->setLoRaSF(loRaSF);
+                cInfo->setLoRaBW(loRaBW);
+                cInfo->setLoRaCR(loRaCR);
+
+                dataPacket->setControlInfo(cInfo);
+
+                send(dataPacket, "appOut");
+            }
+            else {
+                bubble("Max hops!");
+           //     delete (msg);
+            }
+
+        }
 }
 
 bool LoRaNodeApp::handleOperationStage(LifecycleOperation *operation, int stage, IDoneCallback *doneCallback)
@@ -181,11 +207,13 @@ void LoRaNodeApp::sendDataPacket()
     LoRaAppPacket *dataPacket = new LoRaAppPacket("DataFrame");
     dataPacket->setKind(DATA);
 
-    int dataInt = 12346; //rand();
+    int dataInt = 99999;
     dataPacket->setDataInt(dataInt);
-    //dataPacket->setAddressee(intuniform(0, numberOfNodes));
-    dataPacket->setSource(33);
-    dataPacket->setAddressee(44);
+
+    dataPacket->setSource(nodeId);
+    dataPacket->setAddressee(intuniform(0, numberOfNodes-1));
+
+    dataPacket->setHops(numberOfHops);
 
     //add LoRa control info
     LoRaMacControlInfo *cInfo = new LoRaMacControlInfo;
