@@ -37,6 +37,8 @@ class LoRaOptions {
 
 packet LoRaAppPacket {
     int msgType @enum(AppPacketType);
-    int sampleMeasurement;
+    int dataInt;
     LoRaOptions options;
+    int source;
+    int addressee;
 }

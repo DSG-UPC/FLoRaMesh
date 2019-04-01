@@ -169,7 +169,7 @@ void LoRaMotoNodeApp::sendJoinRequest()
     LoRaAppPacket *request = new LoRaAppPacket("DataFrame");
     request->setKind(DATA);
     lastSentMeasurement = rand();
-    request->setSampleMeasurement(lastSentMeasurement);
+    request->setDataInt(lastSentMeasurement);
 
     if(evaluateADRinNode && sendNextPacketWithADRACKReq)
     {

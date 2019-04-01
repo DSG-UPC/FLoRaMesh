@@ -181,8 +181,11 @@ void LoRaNodeApp::sendDataPacket()
     LoRaAppPacket *dataPacket = new LoRaAppPacket("DataFrame");
     dataPacket->setKind(DATA);
 
-    int dataInt = 12345; //rand();
-    dataPacket->setSampleMeasurement(dataInt);
+    int dataInt = 12346; //rand();
+    dataPacket->setDataInt(dataInt);
+    //dataPacket->setAddressee(intuniform(0, numberOfNodes));
+    dataPacket->setSource(33);
+    dataPacket->setAddressee(44);
 
     //add LoRa control info
     LoRaMacControlInfo *cInfo = new LoRaMacControlInfo;
