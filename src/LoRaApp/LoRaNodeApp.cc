@@ -72,6 +72,7 @@ void LoRaNodeApp::initialize(int stage)
         numberOfNodes = par("numberOfNodes");
 
         //Routing variables
+        packetForwarding = par("packetForwarding");
         numberOfHops = par("numberOfHops");
 
         //Node identifier
@@ -153,42 +154,66 @@ void LoRaNodeApp::handleMessageFromLowerLayer(cMessage *msg)
 
     LoRaAppPacket *packet = check_and_cast<LoRaAppPacket *>(msg);
 
-    //Check if the packet if for the current node
+    //Check if the packet is for the current node
     if (packet->getAddressee() == nodeId) {
         bubble("I received a LoRa packet for me!");
+        bool newNeighbour = true;
+
+        for (std::vector<int>::iterator it = neighbourNodes.begin(); it != neighbourNodes.end(); ++it) {
+            if (packet->getSource() == neighbourNodes[it])
+                newNeighbour= false;
+        }
+
+        if (newNeighbour) {
+            neighbourNodes.push(packet->getSource());
+        }
+
     }
+    //Check for retransmissions of packages originally sent by this node
     else if (packet->getSource() == nodeId) {
         bubble("I received a LoRa packet originally sent by me!");
     }
-    else if ( packet->getHops() > 0 ) {
-        bubble("I received a LoRa packet to retransmit!");
-
-        LoRaAppPacket *dataPacket = new LoRaAppPacket("DataFrame");
-        dataPacket->setKind(DATA);
-
-        dataPacket->setDataInt(packet->getDataInt());
-
-        dataPacket->setSource(nodeId);
-        dataPacket->setAddressee(packet->getAddressee());
-
-        dataPacket->setHops(packet->getHops() -1 );
-
-        LoRaMacControlInfo *cInfo = new LoRaMacControlInfo;
-        cInfo->setLoRaTP(loRaTP);
-        cInfo->setLoRaCF(loRaCF);
-        cInfo->setLoRaSF(loRaSF);
-        cInfo->setLoRaBW(loRaBW);
-        cInfo->setLoRaCR(loRaCR);
-
-        dataPacket->setControlInfo(cInfo);
-
-        send(dataPacket, "appOut");
-    }
+    //Forward packet
     else {
-        bubble("I received a LoRa packet that has reached the maximum hop count!");
-    }
+        switch(packetForwarding) {
 
-    //delete msg;
+        // No forwarding
+        case 0 :
+            bubble("Packet forwarding disabled!");
+            break;
+
+        //N-hop broadcast forwarding
+        case 1 :
+            if ( packet->getHops() > 0 ) {
+                bubble("I received a LoRa packet to retransmit!");
+
+                LoRaAppPacket *dataPacket = new LoRaAppPacket("DataFrame");
+                dataPacket->setKind(DATA);
+
+                dataPacket->setDataInt(packet->getDataInt());
+
+                dataPacket->setSource(nodeId);
+                dataPacket->setAddressee(packet->getAddressee());
+
+                dataPacket->setHops(packet->getHops() -1 );
+
+                LoRaMacControlInfo *cInfo = new LoRaMacControlInfo;
+                cInfo->setLoRaTP(loRaTP);
+                cInfo->setLoRaCF(loRaCF);
+                cInfo->setLoRaSF(loRaSF);
+                cInfo->setLoRaBW(loRaBW);
+                cInfo->setLoRaCR(loRaCR);
+
+                dataPacket->setControlInfo(cInfo);
+
+                send(dataPacket, "appOut");
+            }
+            else {
+                bubble("I received a LoRa packet that has reached the maximum hop count!");
+            }
+
+        }
+    }
 }
 
 bool LoRaNodeApp::handleOperationStage(LifecycleOperation *operation, int stage, IDoneCallback *doneCallback)

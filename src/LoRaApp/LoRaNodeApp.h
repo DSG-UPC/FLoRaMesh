@@ -75,6 +75,7 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         int numberOfNodes;
 
         //Routing variables
+        int packetForwarding;
         int numberOfHops;
 
         //Node info
@@ -90,6 +91,7 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         units::values::Hz loRaBW;
         int loRaCR;
         bool loRaUseHeader;
+        std::vector<int> neighbourNodes;
 };
 
 }

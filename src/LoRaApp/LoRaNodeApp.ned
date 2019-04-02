@@ -35,6 +35,7 @@ simple LoRaNodeApp
         @class(inet::LoRaNodeApp);
         bool evaluateADRinNode = default(false);
         int numberOfNodes;
+        int packetForwarding;
         int numberOfHops;
     gates:
         output appOut @labels(LoRaAppPacket/down);
