@@ -163,18 +163,11 @@ void LoRaNodeApp::handleMessageFromLowerLayer(cMessage *msg)
         bubble("I received a LoRa packet for me!");
 
         //Keep track of neighbouring node
-        bool newNeighbour = true;
-
-        for (std::vector<int>::iterator nbptr = neighbourNodes.begin(); nbptr < neighbourNodes.end(); nbptr++) {
-            if ( packet->getSource() == *nbptr ) {
-                newNeighbour = false;
-            }
-        }
-
-        if (newNeighbour) {
-            bubble ("New neighour!");
+        if (!isNeighbour(packet->getSource())){
+            bubble ("New neighbour!");
             neighbourNodes.push_back(packet->getSource());
         }
+
     }
     //Check for retransmissions of packages originally sent by this node
     else if (packet->getSource() == nodeId) {
@@ -237,12 +230,13 @@ void LoRaNodeApp::sendDataPacket()
 
         dataPacket->setKind(DATA);
 
-        int dataInt = sentPackets;
-        dataPacket->setDataInt(100*nodeId+dataInt);
+
+        dataPacket->setDataInt(sentPackets);
 
         dataPacket->setSource(nodeId);
-        //do dataPacket->setAddressee(intuniform(0, numberOfNodes-1));
-        //while (dataPacket->getAddressee() == nodeId);
+
+        do dataPacket->setAddressee(intuniform(0, numberOfNodes-1));
+        while (dataPacket->getAddressee() == nodeId);
 
         dataPacket->setAddressee(1);
         dataPacket->setHops(numberOfHops);
@@ -270,6 +264,16 @@ void LoRaNodeApp::sendDataPacket()
 void LoRaNodeApp::increaseSFIfPossible()
 {
     if(loRaSF < 12) loRaSF++;
+}
+
+bool LoRaNodeApp::isNeighbour(int neighbourId)
+{
+    for (std::vector<int>::iterator nbptr = neighbourNodes.begin(); nbptr < neighbourNodes.end(); nbptr++) {
+        if ( neighbourId == *nbptr ) {
+            return true;
+        }
+    }
+    return false;
 }
 
 } //end namespace inet
