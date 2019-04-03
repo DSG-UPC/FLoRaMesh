@@ -238,8 +238,13 @@ void LoRaNodeApp::sendDataPacket()
         do dataPacket->setAddressee(intuniform(0, numberOfNodes-1));
         while (dataPacket->getAddressee() == nodeId);
 
-        dataPacket->setAddressee(1);
-        dataPacket->setHops(numberOfHops);
+        if ( isNeighbour(dataPacket->getAddressee())){
+            dataPacket->setHops(0);
+        }
+
+        else {
+            dataPacket->setHops(numberOfHops);
+        }
     }
 
 
