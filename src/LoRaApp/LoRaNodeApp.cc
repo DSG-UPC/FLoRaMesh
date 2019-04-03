@@ -233,6 +233,7 @@ void LoRaNodeApp::sendDataPacket()
         dataPacket->setDataInt(sentPackets);
 
         dataPacket->setSource(nodeId);
+        dataPacket->setVia(nodeId);
 
         do dataPacket->setAddressee(intuniform(0, numberOfNodes-1));
         while (dataPacket->getAddressee() == nodeId);
