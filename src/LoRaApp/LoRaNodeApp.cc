@@ -158,16 +158,15 @@ void LoRaNodeApp::handleMessageFromLowerLayer(cMessage *msg)
 
     LoRaAppPacket *packet = check_and_cast<LoRaAppPacket *>(msg);
 
+    //Keep track of neighbouring nodes
+    if (!isNeighbour(packet->getVia())){
+        bubble ("New neighbour!");
+        neighbourNodes.push_back(packet->getVia());
+    }
+
     //Check if the packet is for the current node
     if (packet->getAddressee() == nodeId) {
         bubble("I received a LoRa packet for me!");
-
-        //Keep track of neighbouring node
-        if (!isNeighbour(packet->getSource())){
-            bubble ("New neighbour!");
-            neighbourNodes.push_back(packet->getSource());
-        }
-
     }
     //Check for retransmissions of packages originally sent by this node
     else if (packet->getSource() == nodeId) {
