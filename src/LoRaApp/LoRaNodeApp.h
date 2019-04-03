@@ -81,6 +81,9 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         //Node info
         int nodeId;
 
+        std::vector<int> neighbourNodes;
+        std::vector<LoRaAppPacket> LoRaPacketBuffer;
+
     public:
         LoRaNodeApp() {}
         simsignal_t LoRa_AppPacketSent;
@@ -91,7 +94,6 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         units::values::Hz loRaBW;
         int loRaCR;
         bool loRaUseHeader;
-        std::vector<int> neighbourNodes;
 };
 
 }

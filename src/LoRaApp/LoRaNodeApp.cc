@@ -75,8 +75,12 @@ void LoRaNodeApp::initialize(int stage)
         packetForwarding = par("packetForwarding");
         numberOfHops = par("numberOfHops");
 
+        neighbourNodes = {};
+        LoRaPacketBuffer = {};
+
         //Node identifier
         nodeId = getContainingNode(this)->getIndex();
+
     }
 }
 
@@ -122,7 +126,7 @@ void LoRaNodeApp::handleMessage(cMessage *msg)
 
             delete msg;
 
-            if (numberOfPacketsToSend == 0 || sentPackets < numberOfPacketsToSend) {
+            if (numberOfPacketsToSend == 0 || sentPackets < numberOfPacketsToSend || LoRaPacketBuffer.size() > 0) {
                 double time;
                 if(loRaSF == 7) time = 7.808;
                 if(loRaSF == 8) time = 13.9776;
@@ -157,17 +161,20 @@ void LoRaNodeApp::handleMessageFromLowerLayer(cMessage *msg)
     //Check if the packet is for the current node
     if (packet->getAddressee() == nodeId) {
         bubble("I received a LoRa packet for me!");
+
+        //Keep track of neighbouring node
         bool newNeighbour = true;
 
-        for (std::vector<int>::iterator it = neighbourNodes.begin(); it != neighbourNodes.end(); ++it) {
-            if (packet->getSource() == neighbourNodes[it])
-                newNeighbour= false;
+        for (std::vector<int>::iterator nbptr = neighbourNodes.begin(); nbptr < neighbourNodes.end(); nbptr++) {
+            if ( packet->getSource() == *nbptr ) {
+                newNeighbour = false;
+            }
         }
 
         if (newNeighbour) {
-            neighbourNodes.push(packet->getSource());
+            bubble ("New neighour!");
+            neighbourNodes.push_back(packet->getSource());
         }
-
     }
     //Check for retransmissions of packages originally sent by this node
     else if (packet->getSource() == nodeId) {
@@ -188,25 +195,17 @@ void LoRaNodeApp::handleMessageFromLowerLayer(cMessage *msg)
                 bubble("I received a LoRa packet to retransmit!");
 
                 LoRaAppPacket *dataPacket = new LoRaAppPacket("DataFrame");
-                dataPacket->setKind(DATA);
+                dataPacket->setKind(packet->getKind());
 
                 dataPacket->setDataInt(packet->getDataInt());
 
-                dataPacket->setSource(nodeId);
+                dataPacket->setSource(packet->getSource());
                 dataPacket->setAddressee(packet->getAddressee());
+                dataPacket->setVia(nodeId);
 
                 dataPacket->setHops(packet->getHops() -1 );
 
-                LoRaMacControlInfo *cInfo = new LoRaMacControlInfo;
-                cInfo->setLoRaTP(loRaTP);
-                cInfo->setLoRaCF(loRaCF);
-                cInfo->setLoRaSF(loRaSF);
-                cInfo->setLoRaBW(loRaBW);
-                cInfo->setLoRaCR(loRaCR);
-
-                dataPacket->setControlInfo(cInfo);
-
-                send(dataPacket, "appOut");
+                LoRaPacketBuffer.push_back(*dataPacket);
             }
             else {
                 bubble("I received a LoRa packet that has reached the maximum hop count!");
@@ -227,16 +226,28 @@ bool LoRaNodeApp::handleOperationStage(LifecycleOperation *operation, int stage,
 void LoRaNodeApp::sendDataPacket()
 {
     LoRaAppPacket *dataPacket = new LoRaAppPacket("DataFrame");
-    dataPacket->setKind(DATA);
 
-    int dataInt = sentPackets;
-    dataPacket->setDataInt(dataInt);
+    if (LoRaPacketBuffer.size() > 0 ) {
+        bubble("Forwarding packet!");
+        LoRaAppPacket *frontDataPacket = &LoRaPacketBuffer.front();
+        dataPacket = frontDataPacket->dup();
+        LoRaPacketBuffer.erase (LoRaPacketBuffer.begin());
+    }
+    else {
 
-    dataPacket->setSource(nodeId);
-    do dataPacket->setAddressee(intuniform(0, numberOfNodes-1));
-    while (dataPacket->getAddressee() == nodeId);
+        dataPacket->setKind(DATA);
 
-    dataPacket->setHops(numberOfHops);
+        int dataInt = sentPackets;
+        dataPacket->setDataInt(100*nodeId+dataInt);
+
+        dataPacket->setSource(nodeId);
+        //do dataPacket->setAddressee(intuniform(0, numberOfNodes-1));
+        //while (dataPacket->getAddressee() == nodeId);
+
+        dataPacket->setAddressee(1);
+        dataPacket->setHops(numberOfHops);
+    }
+
 
     //add LoRa control info
     LoRaMacControlInfo *cInfo = new LoRaMacControlInfo;
