@@ -50,6 +50,7 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
 
         int numberOfPacketsToSend;
         int sentPackets;
+        int forwardedPackets;
         int receivedPackets;
         int receivedADRCommands;
         int lastSentMeasurement;

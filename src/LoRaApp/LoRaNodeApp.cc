@@ -51,6 +51,7 @@ void LoRaNodeApp::initialize(int stage)
         scheduleAt(simTime()+timeToFirstPacket, selfDataPacket);
 
         sentPackets = 0;
+        forwardedPackets = 0;
         receivedPackets = 0;
         receivedADRCommands = 0;
         numberOfPacketsToSend = par("numberOfPacketsToSend");
@@ -109,6 +110,7 @@ void LoRaNodeApp::finish()
     recordScalar("finalTP", loRaTP);
     recordScalar("finalSF", loRaSF);
     recordScalar("sentPackets", sentPackets);
+    recordScalar("forwardedPackets", forwardedPackets);
     recordScalar("receivedPackets", receivedPackets);
     recordScalar("receivedADRCommands", receivedADRCommands);
 }
@@ -221,6 +223,7 @@ void LoRaNodeApp::sendDataPacket()
 
     if (LoRaPacketBuffer.size() > 0 ) {
         bubble("Forwarding packet!");
+        forwardedPackets++;
         LoRaAppPacket *frontDataPacket = &LoRaPacketBuffer.front();
         dataPacket = frontDataPacket->dup();
         LoRaPacketBuffer.erase (LoRaPacketBuffer.begin());
