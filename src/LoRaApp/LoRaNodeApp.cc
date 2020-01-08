@@ -165,7 +165,7 @@ void LoRaNodeApp::handleMessageFromLowerLayer(cMessage *msg)
     }
 
     //Check if the packet is for the current node
-    if (packet->getAddressee() == nodeId) {
+    if (packet->getDestination() == nodeId) {
         bubble("I received a LoRa packet for me!");
     }
     //Check for retransmissions of packages originally sent by this node
@@ -192,7 +192,7 @@ void LoRaNodeApp::handleMessageFromLowerLayer(cMessage *msg)
                 dataPacket->setDataInt(packet->getDataInt());
 
                 dataPacket->setSource(packet->getSource());
-                dataPacket->setAddressee(packet->getAddressee());
+                dataPacket->setDestination(packet->getDestination());
                 dataPacket->setVia(nodeId);
 
                 dataPacket->setHops(packet->getHops() -1 );
@@ -235,10 +235,10 @@ void LoRaNodeApp::sendDataPacket()
         dataPacket->setSource(nodeId);
         dataPacket->setVia(nodeId);
 
-        do dataPacket->setAddressee(intuniform(0, numberOfNodes-1));
-        while (dataPacket->getAddressee() == nodeId);
+        do dataPacket->setDestination(intuniform(0, numberOfNodes-1));
+        while (dataPacket->getDestination() == nodeId);
 
-        if ( isNeighbour(dataPacket->getAddressee())){
+        if ( isNeighbour(dataPacket->getDestination())){
             dataPacket->setHops(0);
         }
 

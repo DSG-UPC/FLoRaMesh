@@ -40,7 +40,7 @@ packet LoRaAppPacket {
     int dataInt;
     LoRaOptions options;
     int source;
-    int addressee;
+    int destination;
     int hops;
     int via;
 }
