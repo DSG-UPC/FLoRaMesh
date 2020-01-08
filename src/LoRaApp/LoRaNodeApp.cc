@@ -128,7 +128,7 @@ void LoRaNodeApp::handleMessage(cMessage *msg)
 
             delete msg;
 
-            if (numberOfPacketsToSend == 0 || sentPackets < numberOfPacketsToSend || LoRaPacketBuffer.size() > 0) {
+            if (numberOfPacketsToSend == 0 || sentPackets < numberOfPacketsToSend + forwardedPackets || LoRaPacketBuffer.size() > 0) {
                 double time;
                 if(loRaSF == 7) time = 7.808;
                 if(loRaSF == 8) time = 13.9776;
