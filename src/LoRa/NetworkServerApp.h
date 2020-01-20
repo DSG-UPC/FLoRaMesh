@@ -39,6 +39,7 @@ public:
     int framesFromLastADRCommand;
     int lastSeqNoProcessed;
     int numberOfSentADRPackets;
+    int numberOfSentACKPackets;
     std::list<double> adrListSNIR;
     cOutVector *historyAllSNIR;
     cOutVector *historyAllRSSI;
@@ -89,8 +90,10 @@ class INET_API NetworkServerApp : public cSimpleModule, cListener
     void addPktToProcessingTable(LoRaMacFrame* pkt);
     void processScheduledPacket(cMessage* selfMsg);
     void evaluateADR(LoRaMacFrame* pkt, L3Address pickedGateway, double SNIRinGW, double RSSIinGW);
+    void acknowledgePacket(LoRaMacFrame* pkt, L3Address pickedGateway, double SNIRinGW, double RSSIinGW);
     void receiveSignal(cComponent *source, simsignal_t signalID, long value, cObject *details) override;
     bool evaluateADRinServer;
+    bool acknowledgePackets;
 
     cHistogram receivedRSSI;
   public:

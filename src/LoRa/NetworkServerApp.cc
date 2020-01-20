@@ -37,6 +37,7 @@ void NetworkServerApp::initialize(int stage)
         startUDP();
         getSimulation()->getSystemModule()->subscribe("LoRa_AppPacketSent", this);
         evaluateADRinServer = par("evaluateADRinServer");
+        acknowledgePackets = par("acknowledgePackets");
         adrDeviceMargin = par("adrDeviceMargin");
         receivedRSSI.setName("Received RSSI");
         totalReceivedPackets = 0;
@@ -94,6 +95,7 @@ void NetworkServerApp::finish()
         delete knownNodes[i].receivedSeqNumber;
         delete knownNodes[i].calculatedSNRmargin;
         recordScalar("Send ADR for node", knownNodes[i].numberOfSentADRPackets);
+        recordScalar("Send ACK for node", knownNodes[i].numberOfSentACKPackets);
     }
     for (std::map<int,int>::iterator it=numReceivedPerNode.begin(); it != numReceivedPerNode.end(); ++it)
     {
@@ -178,6 +180,7 @@ void NetworkServerApp::updateKnownNodes(LoRaMacFrame* pkt)
         newNode.lastSeqNoProcessed = pkt->getSequenceNumber();
         newNode.framesFromLastADRCommand = 0;
         newNode.numberOfSentADRPackets = 0;
+        newNode.numberOfSentACKPackets = 0;
         newNode.historyAllSNIR = new cOutVector;
         newNode.historyAllSNIR->setName("Vector of SNIR per node");
         //newNode.historyAllSNIR->record(pkt->getSNIR());
@@ -264,9 +267,62 @@ void NetworkServerApp::processScheduledPacket(cMessage* selfMsg)
     {
         evaluateADR(frame, pickedGateway, SNIRinGW, RSSIinGW);
     }
+    if(acknowledgePackets)
+    {
+        acknowledgePacket(frame, pickedGateway, SNIRinGW, RSSIinGW);
+    }
     delete receivedPackets[packetNumber].rcvdPacket;
     delete selfMsg;
     receivedPackets.erase(receivedPackets.begin()+packetNumber);
+}
+
+void NetworkServerApp::acknowledgePacket(LoRaMacFrame* pkt, L3Address pickedGateway, double SNIRinGW, double RSSIinGW)
+{
+    bool sendACK = false;
+    int nodeIndex;
+
+    LoRaAppPacket *rcvAppPacket = check_and_cast<LoRaAppPacket*>(pkt->decapsulate());
+    if(rcvAppPacket->getOptions().getAppACKReq())
+    {
+        sendACK = true;
+    }
+
+    for(uint i=0;i<knownNodes.size();i++)
+    {
+        if(knownNodes[i].srcAddr == pkt->getTransmitterAddress())
+        {
+            nodeIndex = i;
+        }
+    }
+
+    if(sendACK)
+    {
+        LoRaAppPacket *mgmtPacket = new LoRaAppPacket("ACKcommand");
+        mgmtPacket->setMsgType(ACK);
+
+
+
+        char text[32];
+        sprintf(text, "Nodeindex is #%d", nodeIndex);
+        bubble(text);
+
+        if(simTime() >= getSimulation()->getWarmupPeriod())
+        {
+            knownNodes[nodeIndex].numberOfSentACKPackets++;
+        }
+
+        LoRaMacFrame *frameToSend = new LoRaMacFrame("ACKPacket");
+        frameToSend->encapsulate(mgmtPacket);
+        frameToSend->setReceiverAddress(pkt->getTransmitterAddress());
+        //FIXME: What value to set for LoRa TP
+        //frameToSend->setLoRaTP(pkt->getLoRaTP());
+        frameToSend->setLoRaTP(14);
+        frameToSend->setLoRaCF(pkt->getLoRaCF());
+        frameToSend->setLoRaSF(pkt->getLoRaSF());
+        frameToSend->setLoRaBW(pkt->getLoRaBW());
+        socket.sendTo(frameToSend, pickedGateway, destPort);
+    }
+    delete rcvAppPacket;
 }
 
 void NetworkServerApp::evaluateADR(LoRaMacFrame* pkt, L3Address pickedGateway, double SNIRinGW, double RSSIinGW)
@@ -293,9 +349,10 @@ void NetworkServerApp::evaluateADR(LoRaMacFrame* pkt, L3Address pickedGateway, d
             if(knownNodes[i].adrListSNIR.size() == 20) knownNodes[i].adrListSNIR.pop_front();
             knownNodes[i].framesFromLastADRCommand++;
 
+            nodeIndex = i;
+
             if(knownNodes[i].framesFromLastADRCommand == 20)
             {
-                nodeIndex = i;
                 knownNodes[i].framesFromLastADRCommand = 0;
                 sendADR = true;
                 if(adrMethod == "max")

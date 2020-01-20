@@ -25,6 +25,7 @@ simple NetworkServerApp like IUDPApp
     string localAddress = default("");
     int destPort = default(-1);
     bool evaluateADRinServer = default(false);
+    bool acknowledgePackets = default(false);
 	
 	string adrMethod = default("max");
 	double adrDeviceMargin = default(15);

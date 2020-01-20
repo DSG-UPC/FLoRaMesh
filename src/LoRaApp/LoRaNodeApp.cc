@@ -84,6 +84,8 @@ void LoRaNodeApp::initialize(int stage)
         //Node identifier
         nodeId = getContainingNode(this)->getIndex();
 
+        //Application parameters
+        requestACKfromApp = par("requestACKfromApp");
     }
 }
 
@@ -220,7 +222,7 @@ bool LoRaNodeApp::handleOperationStage(LifecycleOperation *operation, int stage,
 void LoRaNodeApp::sendDataPacket()
 {
     LoRaAppPacket *dataPacket = new LoRaAppPacket("DataFrame");
-    LoRaAppPacket *tempPacket = new LoRaAppPacket("DataFrame");
+
     int packetPos = 0;
 
     // Only forward packets after sending own packets
@@ -235,6 +237,8 @@ void LoRaNodeApp::sendDataPacket()
         // do dataPacket->setDestination(intuniform(0, numberOfNodes-1));
         // while (dataPacket->getDestination() == nodeId);
         dataPacket->setDestination(-1);
+
+        dataPacket->getOptions().setAppACKReq(requestACKfromApp);
 
         if ( isNeighbour(dataPacket->getDestination())){
             dataPacket->setHops(0);
@@ -290,6 +294,8 @@ void LoRaNodeApp::sendDataPacket()
     cInfo->setLoRaCR(loRaCR);
 
     dataPacket->setControlInfo(cInfo);
+
+    //dataPacket->getOptions().setADRACKReq(true);
 
     sfVector.record(loRaSF);
     tpVector.record(loRaTP);
