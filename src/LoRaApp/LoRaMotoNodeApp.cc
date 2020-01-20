@@ -53,6 +53,7 @@ void LoRaMotoNodeApp::initialize(int stage)
         sentPackets = 0;
         receivedADRCommands = 0;
         numberOfPacketsToSend = par("numberOfPacketsToSend");
+        numberOfPacketsToForward = par("numberOfPacketsToForward");
 
         LoRa_AppPacketSent = registerSignal("LoRa_AppPacketSent");
 

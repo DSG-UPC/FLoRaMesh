@@ -55,6 +55,8 @@ void LoRaNodeApp::initialize(int stage)
         receivedPackets = 0;
         receivedADRCommands = 0;
         numberOfPacketsToSend = par("numberOfPacketsToSend");
+        numberOfPacketsToForward = par("numberOfPacketsToForward");
+
 
         LoRa_AppPacketSent = registerSignal("LoRa_AppPacketSent");
 
@@ -121,14 +123,12 @@ void LoRaNodeApp::handleMessage(cMessage *msg)
 
         if (msg == selfDataPacket) {
 
-            sendDataPacket();
-
             if (simTime() >= getSimulation()->getWarmupPeriod())
-                sentPackets++;
+                sendDataPacket();
 
             delete msg;
 
-            if (numberOfPacketsToSend == 0 || sentPackets < numberOfPacketsToSend + forwardedPackets || LoRaPacketBuffer.size() > 0) {
+            if ( numberOfPacketsToSend == 0 || (sentPackets < numberOfPacketsToSend) || (forwardedPackets < numberOfPacketsToForward && LoRaPacketBuffer.size() > 0 )) {
                 double time;
                 if(loRaSF == 7) time = 7.808;
                 if(loRaSF == 8) time = 13.9776;
@@ -220,36 +220,66 @@ bool LoRaNodeApp::handleOperationStage(LifecycleOperation *operation, int stage,
 void LoRaNodeApp::sendDataPacket()
 {
     LoRaAppPacket *dataPacket = new LoRaAppPacket("DataFrame");
+    LoRaAppPacket *tempPacket = new LoRaAppPacket("DataFrame");
+    int packetPos = 0;
 
-    if (LoRaPacketBuffer.size() > 0 ) {
-        bubble("Forwarding packet!");
-        forwardedPackets++;
-        LoRaAppPacket *frontDataPacket = &LoRaPacketBuffer.front();
-        dataPacket = frontDataPacket->dup();
-        LoRaPacketBuffer.erase (LoRaPacketBuffer.begin());
-    }
-    else {
+    // Only forward packets after sending own packets
+    if (sentPackets < numberOfPacketsToSend) {
+        bubble("Sending my own packet!");
+        sentPackets++;
 
         dataPacket->setKind(DATA);
-
-
         dataPacket->setDataInt(sentPackets);
-
         dataPacket->setSource(nodeId);
         dataPacket->setVia(nodeId);
-
-        do dataPacket->setDestination(intuniform(0, numberOfNodes-1));
-        while (dataPacket->getDestination() == nodeId);
+        // do dataPacket->setDestination(intuniform(0, numberOfNodes-1));
+        // while (dataPacket->getDestination() == nodeId);
+        dataPacket->setDestination(-1);
 
         if ( isNeighbour(dataPacket->getDestination())){
             dataPacket->setHops(0);
         }
-
         else {
             dataPacket->setHops(numberOfHops);
         }
     }
+    // Forward other nodes' packets
+    else {
+        if (LoRaPacketBuffer.size() > 0) {
+            bubble("Forwarding packet!");
+            forwardedPackets++;
 
+            switch(packetForwarding) {
+                // No forwarding
+                case 0:
+                {
+                    bubble("Packet forwarding disabled!");
+                    break;
+                }
+                // Randomly pick one of the packets
+                case 1:
+                {
+                    packetPos = intuniform(0, LoRaPacketBuffer.size()-1);
+
+                    char text[32];
+                    sprintf(text, "Picking packet #%d", packetPos);
+                    bubble(text);
+
+                    LoRaAppPacket *backDataPacket = &LoRaPacketBuffer.at(packetPos);
+                    dataPacket = backDataPacket->dup();
+                    LoRaPacketBuffer.erase(LoRaPacketBuffer.begin()+packetPos);
+                    break;
+                }
+                // FIFO
+                default:
+                {
+                    LoRaAppPacket *frontDataPacket = &LoRaPacketBuffer.front();
+                    dataPacket = frontDataPacket->dup();
+                    LoRaPacketBuffer.erase(LoRaPacketBuffer.begin());
+                }
+            }
+        }
+    }
 
     //add LoRa control info
     LoRaMacControlInfo *cInfo = new LoRaMacControlInfo;
