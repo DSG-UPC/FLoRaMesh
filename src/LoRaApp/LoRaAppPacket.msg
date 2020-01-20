@@ -23,6 +23,7 @@ enum AppPacketType
     JOIN_REPLY = 2;
     DATA = 3;
     TXCONFIG = 4;
+    ACK = 5;
 }
 
 class LoRaOptions {
@@ -33,6 +34,7 @@ class LoRaOptions {
     int LoRaCR = -1;
     bool UseHeader = true;
     bool ADRACKReq = false;
+    bool AppACKReq = false;
 }
 
 packet LoRaAppPacket {
