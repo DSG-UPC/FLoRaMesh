@@ -47,6 +47,7 @@ class INET_API LoRaMotoGWApp : public cSimpleModule, public ILifecycle
         void sendDownMgmtPacket();
 
         int numberOfPacketsToSend;
+        int numberOfPacketsToForward;
         int sentPackets;
         int receivedPackets;
         int receivedADRCommands;

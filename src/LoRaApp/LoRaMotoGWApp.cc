@@ -54,6 +54,7 @@ void LoRaMotoGWApp::initialize(int stage)
 
         receivedADRCommands = 0;
         numberOfPacketsToSend = par("numberOfPacketsToSend");
+        numberOfPacketsToForward = par("numberOfPacketsToForward");
 
         LoRa_AppPacketSent = registerSignal("LoRa_AppPacketSent");
 

@@ -24,6 +24,7 @@ simple LoRaMotoGWApp
         @signal[LoRa_AppPacketSent](type=long); // optional
         @statistic[LoRa_AppPacketSent](source=LoRa_AppPacketSent; record=count);
         int numberOfPacketsToSend = default(1);
+        int numberOfPacketsToForward = default(0);
         volatile double timeToFirstPacket @unit(s) = default(10s);
         volatile double timeToNextPacket @unit(s) = default(10s);
         double initialLoRaTP @unit(dBm) = default(14dBm);
