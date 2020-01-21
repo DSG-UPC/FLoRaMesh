@@ -299,8 +299,8 @@ void NetworkServerApp::acknowledgePacket(LoRaMacFrame* pkt, L3Address pickedGate
     {
         LoRaAppPacket *mgmtPacket = new LoRaAppPacket("ACKcommand");
         mgmtPacket->setMsgType(ACK);
-
-
+        mgmtPacket->setDestination(rcvAppPacket->getSource());
+        mgmtPacket->setSource(-1);
 
         char text[32];
         sprintf(text, "Nodeindex is #%d", nodeIndex);
