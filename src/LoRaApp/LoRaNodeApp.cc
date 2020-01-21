@@ -57,7 +57,6 @@ void LoRaNodeApp::initialize(int stage)
         numberOfPacketsToSend = par("numberOfPacketsToSend");
         numberOfPacketsToForward = par("numberOfPacketsToForward");
 
-
         LoRa_AppPacketSent = registerSignal("LoRa_AppPacketSent");
 
         //LoRa physical layer parameters
@@ -80,12 +79,15 @@ void LoRaNodeApp::initialize(int stage)
 
         neighbourNodes = {};
         LoRaPacketBuffer = {};
+        ACKedNodes = {};
 
         //Node identifier
         nodeId = getContainingNode(this)->getIndex();
 
-        //Application parameters
+        //Application acknowledgment
         requestACKfromApp = par("requestACKfromApp");
+        stopOnACK = par("stopOnACK");
+        AppACKReceived = false;
     }
 }
 
@@ -126,11 +128,15 @@ void LoRaNodeApp::handleMessage(cMessage *msg)
         if (msg == selfDataPacket) {
 
             if (simTime() >= getSimulation()->getWarmupPeriod())
-                sendDataPacket();
 
             delete msg;
 
-            if ( numberOfPacketsToSend == 0 || (sentPackets < numberOfPacketsToSend) || (forwardedPackets < numberOfPacketsToForward && LoRaPacketBuffer.size() > 0 )) {
+            if ( ((numberOfPacketsToSend == 0 || sentPackets < numberOfPacketsToSend) && (!AppACKReceived || !stopOnACK)) ||
+                  (forwardedPackets < numberOfPacketsToForward && LoRaPacketBuffer.size() > 0 ))
+
+            {
+                sendDataPacket();
+
                 double time;
                 if(loRaSF == 7) time = 7.808;
                 if(loRaSF == 8) time = 13.9776;
@@ -139,13 +145,13 @@ void LoRaNodeApp::handleMessage(cMessage *msg)
                 if(loRaSF == 11) time = 85.6064;
                 if(loRaSF == 12) time = 171.2128;
 
-            do {
-                //(ToDo) Warning: too small a par("timeToNextPacket") might cause a lock here
-                timeToNextPacket = par("timeToNextPacket");
-            } while(timeToNextPacket <= time);
+                do {
+                    //(ToDo) Warning: too small a par("timeToNextPacket") might cause a lock here
+                    timeToNextPacket = par("timeToNextPacket");
+                } while(timeToNextPacket <= time);
 
-            selfDataPacket = new cMessage("selfDataPacket");
-            scheduleAt(simTime() + timeToNextPacket, selfDataPacket);
+                selfDataPacket = new cMessage("selfDataPacket");
+                scheduleAt(simTime() + timeToNextPacket, selfDataPacket);
             }
         }
     }
@@ -162,52 +168,78 @@ void LoRaNodeApp::handleMessageFromLowerLayer(cMessage *msg)
 
     LoRaAppPacket *packet = check_and_cast<LoRaAppPacket *>(msg);
 
-    //Keep track of neighbouring nodes
-    if (!isNeighbour(packet->getVia())){
-        bubble ("New neighbour!");
-        neighbourNodes.push_back(packet->getVia());
-    }
-
-    //Check if the packet is for the current node
-    if (packet->getDestination() == nodeId) {
-        bubble("I received a LoRa packet for me!");
-    }
-    //Check for retransmissions of packages originally sent by this node
-    else if (packet->getSource() == nodeId) {
-        bubble("I received a LoRa packet originally sent by me!");
-    }
-    //Forward packet
-    else {
-        switch(packetForwarding) {
-
-        // No forwarding
-        case 0 :
-            bubble("Packet forwarding disabled!");
+    switch (packet->getMsgType()) {
+        case ACK :
+            bubble("ACK package received!");
+            //Check if the packet is for the current node
+                if (packet->getDestination() == nodeId) {
+                    bubble("I received an ACK packet from the app for me!");
+                    AppACKReceived = true;
+                }
+                else {
+                    bubble("I received an ACK packet from the app for another node!");
+                    ACKedNodes.push_back(packet->getDestination());
+                }
             break;
+        case DATA:
+            bubble("DATA packet received!");
 
-        //N-hop broadcast forwarding
-        case 1 :
-            if ( packet->getHops() > 0 ) {
-                bubble("I received a LoRa packet to retransmit!");
-
-                LoRaAppPacket *dataPacket = new LoRaAppPacket("DataFrame");
-                dataPacket->setKind(packet->getKind());
-
-                dataPacket->setDataInt(packet->getDataInt());
-
-                dataPacket->setSource(packet->getSource());
-                dataPacket->setDestination(packet->getDestination());
-                dataPacket->setVia(nodeId);
-
-                dataPacket->setHops(packet->getHops() -1 );
-
-                LoRaPacketBuffer.push_back(*dataPacket);
+            //Check if the packet is for the current node
+            if (packet->getDestination() == nodeId) {
+                bubble("I received a data packet for me!");
+                //TODO delete packet;
             }
             else {
-                bubble("I received a LoRa packet that has reached the maximum hop count!");
-            }
+                //Keep track of neighbouring nodes
+                if (!isNeighbour(packet->getVia())){
+                    bubble ("New neighbour!");
+                    neighbourNodes.push_back(packet->getVia());
+                }
 
-        }
+                // Check for retransmissions of packages originally sent by this node
+                if (packet->getSource() == nodeId) {
+                    bubble("I received a LoRa packet originally sent by me!");
+                    //TODO delete packet
+                }
+                //Forward packet
+                else {
+                    switch(packetForwarding) {
+                        // No forwarding
+                        case 0 :
+                            bubble("Packet forwarding disabled!");
+                            break;
+
+                        //N-hop broadcast forwarding
+                        case 1 :
+                            if ( packet->getHops() > 0 ) {
+                                bubble("I received a LoRa packet to retransmit!");
+
+                                LoRaAppPacket *dataPacket = new LoRaAppPacket("DataFrame");
+                                dataPacket->setMsgType(packet->getMsgType());
+
+                                dataPacket->setDataInt(packet->getDataInt());
+
+                                dataPacket->setSource(packet->getSource());
+                                dataPacket->setDestination(packet->getDestination());
+                                dataPacket->setVia(nodeId);
+
+                                dataPacket->getOptions().setAppACKReq(packet->getOptions().getAppACKReq());
+                                dataPacket->getOptions().setADRACKReq(packet->getOptions().getADRACKReq());
+
+                                dataPacket->setHops(packet->getHops() -1 );
+
+                                LoRaPacketBuffer.push_back(*dataPacket);
+                            }
+                            else {
+                                bubble("I received a LoRa packet that has reached the maximum hop count!");
+                            }
+                        }
+                    }
+                }
+            break;
+        default:
+            bubble("Other type of packet received!");
+            break;
     }
 }
 
@@ -227,10 +259,14 @@ void LoRaNodeApp::sendDataPacket()
 
     // Only forward packets after sending own packets
     if (sentPackets < numberOfPacketsToSend) {
-        bubble("Sending my own packet!");
+
+        char text[32];
+        sprintf(text, "Sending my own packet #%d", sentPackets);
+        bubble(text);
+
         sentPackets++;
 
-        dataPacket->setKind(DATA);
+        dataPacket->setMsgType(DATA);
         dataPacket->setDataInt(sentPackets);
         dataPacket->setSource(nodeId);
         dataPacket->setVia(nodeId);

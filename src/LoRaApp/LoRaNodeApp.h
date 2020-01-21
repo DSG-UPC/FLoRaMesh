@@ -85,10 +85,13 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         int nodeId;
 
         std::vector<int> neighbourNodes;
+        std::vector<int> ACKedNodes;
         std::vector<LoRaAppPacket> LoRaPacketBuffer;
 
         //Application parameters
         bool requestACKfromApp;
+        bool stopOnACK;
+        bool AppACKReceived;
 
     public:
         LoRaNodeApp() {}

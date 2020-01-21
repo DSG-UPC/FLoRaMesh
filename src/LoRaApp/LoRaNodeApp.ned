@@ -39,6 +39,8 @@ simple LoRaNodeApp
         int packetForwarding;
         int numberOfHops;
         bool requestACKfromApp = default(false);
+        bool stopOnACK = default(true);
+        bool AppACKReceived = default(false);
     gates:
         output appOut @labels(LoRaAppPacket/down);
         input appIn @labels(LoRaAppPacket/up);
