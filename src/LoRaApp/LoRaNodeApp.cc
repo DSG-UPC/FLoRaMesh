@@ -88,6 +88,18 @@ void LoRaNodeApp::initialize(int stage)
         requestACKfromApp = par("requestACKfromApp");
         stopOnACK = par("stopOnACK");
         AppACKReceived = false;
+
+        //WATCHES
+        WATCH(sentPackets);
+        WATCH(forwardedPackets);
+        WATCH(receivedPackets);
+        WATCH(AppACKReceived);
+
+        WATCH_VECTOR(neighbourNodes);
+        WATCH_VECTOR(ACKedNodes);
+
+        WATCH_VECTOR(LoRaPacketBuffer);
+
     }
 }
 
