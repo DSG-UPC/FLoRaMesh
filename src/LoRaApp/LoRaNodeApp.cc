@@ -191,7 +191,10 @@ void LoRaNodeApp::handleMessageFromLowerLayer(cMessage *msg)
                 }
                 else {
                     bubble("I received an ACK packet from the app for another node!");
-                    ACKedNodes.push_back(packet->getDestination());
+                    if (!isACKed(packet->getDestination())) {
+                        ACKedNodes.push_back(packet->getDestination());
+                    }
+
                 }
             break;
         case DATA:
@@ -363,6 +366,16 @@ bool LoRaNodeApp::isNeighbour(int neighbourId)
 {
     for (std::vector<int>::iterator nbptr = neighbourNodes.begin(); nbptr < neighbourNodes.end(); nbptr++) {
         if ( neighbourId == *nbptr ) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool LoRaNodeApp::isACKed(int nodeId)
+{
+    for (std::vector<int>::iterator nbptr = ACKedNodes.begin(); nbptr < ACKedNodes.end(); nbptr++) {
+        if ( nodeId == *nbptr ) {
             return true;
         }
     }
