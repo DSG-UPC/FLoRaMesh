@@ -131,6 +131,7 @@ void LoRaNodeApp::finish()
     recordScalar("forwardedPackets", forwardedPackets);
     recordScalar("receivedPackets", receivedPackets);
     recordScalar("receivedADRCommands", receivedADRCommands);
+    recordScalar("AppACKReceived", AppACKReceived);
 }
 
 void LoRaNodeApp::handleMessage(cMessage *msg)
