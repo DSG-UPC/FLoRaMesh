@@ -77,6 +77,10 @@ class INET_API NetworkServerApp : public cSimpleModule, cListener
     double adrDeviceMargin;
     std::map<int, int> numReceivedPerNode;
 
+    std::vector<int> receivedNodes;
+    std::vector<int> ACKReqNodes;
+    std::vector<int> ACKedNodes;
+
   protected:
     virtual void initialize(int stage) override;
     virtual void handleMessage(cMessage *msg) override;

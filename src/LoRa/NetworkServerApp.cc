@@ -41,11 +41,19 @@ void NetworkServerApp::initialize(int stage)
         adrDeviceMargin = par("adrDeviceMargin");
         receivedRSSI.setName("Received RSSI");
         totalReceivedPackets = 0;
+        receivedNodes = {};
+        ACKReqNodes = {};
+        ACKedNodes = {};
         for(int i=0;i<6;i++)
         {
             counterUniqueReceivedPacketsPerSF[i] = 0;
             counterOfSentPacketsFromNodesPerSF[i] = 0;
         }
+
+        //Watches
+        WATCH_VECTOR(receivedNodes);
+        WATCH_VECTOR(ACKReqNodes);
+        WATCH_VECTOR(ACKedNodes);
     }
 }
 
