@@ -132,6 +132,10 @@ void LoRaNodeApp::finish()
     recordScalar("receivedPackets", receivedPackets);
     recordScalar("receivedADRCommands", receivedADRCommands);
     recordScalar("AppACKReceived", AppACKReceived);
+
+    for (std::vector<LoRaAppPacket>::iterator lbptr = LoRaPacketBuffer.begin(); lbptr < LoRaPacketBuffer.end(); lbptr++) {
+        LoRaPacketBuffer.erase(lbptr);
+    }
 }
 
 void LoRaNodeApp::handleMessage(cMessage *msg)
