@@ -88,12 +88,18 @@ void LoRaNodeApp::initialize(int stage)
         requestACKfromApp = par("requestACKfromApp");
         stopOnACK = par("stopOnACK");
         AppACKReceived = false;
+        increaseSF = par("increaseSF");
+        ACKSF = par("initialLoRaSF");
+        packetsPerSF = par("packetsPerSF");
+        packetsInSF = 0;
 
         //WATCHES
         WATCH(sentPackets);
         WATCH(forwardedPackets);
         WATCH(receivedPackets);
         WATCH(AppACKReceived);
+        WATCH(loRaSF);
+        WATCH(packetsInSF);
 
         WATCH_VECTOR(neighbourNodes);
         WATCH_VECTOR(ACKedNodes);
@@ -191,6 +197,7 @@ void LoRaNodeApp::handleMessageFromLowerLayer(cMessage *msg)
                 if (packet->getDestination() == nodeId) {
                     bubble("I received an ACK packet from the app for me!");
                     AppACKReceived = true;
+                    ACKSF = loRaSF;
                 }
                 else {
                     bubble("I received an ACK packet from the app for another node!");
@@ -301,6 +308,21 @@ void LoRaNodeApp::sendDataPacket()
         else {
             dataPacket->setHops(numberOfHops);
         }
+
+        if (increaseSF) {
+
+            if ((packetsInSF+1) < packetsPerSF) {
+                packetsInSF++;
+                bubble("a");
+            }
+            else {
+                packetsInSF = 0;
+                increaseSFIfPossible();
+                bubble("b");
+            }
+
+
+        }
     }
     // Forward other nodes' packets
     else {
@@ -362,7 +384,12 @@ void LoRaNodeApp::sendDataPacket()
 
 void LoRaNodeApp::increaseSFIfPossible()
 {
-    if(loRaSF < 12) loRaSF++;
+    if(loRaSF < 12) {
+        char text[32];
+        sprintf(text, "Increasing SF from %d to %d", loRaSF, loRaSF+1);
+        bubble(text);
+        loRaSF++;
+    }
 }
 
 bool LoRaNodeApp::isNeighbour(int neighbourId)

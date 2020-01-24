@@ -41,6 +41,9 @@ simple LoRaNodeApp
         bool requestACKfromApp = default(false);
         bool stopOnACK = default(true);
         bool AppACKReceived = default(false);
+        bool increaseSF = default(false);
+        int packetsPerSF = default(1);
+        int packetsInSF = default(0);
     gates:
         output appOut @labels(LoRaAppPacket/down);
         input appIn @labels(LoRaAppPacket/up);
