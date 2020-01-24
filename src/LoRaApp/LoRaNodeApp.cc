@@ -146,8 +146,6 @@ void LoRaNodeApp::handleMessage(cMessage *msg)
 
             if (simTime() >= getSimulation()->getWarmupPeriod())
 
-            delete msg;
-
             if ( ((numberOfPacketsToSend == 0 || sentPackets < numberOfPacketsToSend) && (!AppACKReceived || !stopOnACK)) ||
                   (forwardedPackets < numberOfPacketsToForward && LoRaPacketBuffer.size() > 0 ))
 
@@ -171,6 +169,7 @@ void LoRaNodeApp::handleMessage(cMessage *msg)
                 scheduleAt(simTime() + timeToNextPacket, selfDataPacket);
             }
         }
+        delete msg;
     }
     else
     {
