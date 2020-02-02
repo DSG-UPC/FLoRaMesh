@@ -88,8 +88,11 @@ void LoRaNodeApp::initialize(int stage)
         requestACKfromApp = par("requestACKfromApp");
         stopOnACK = par("stopOnACK");
         AppACKReceived = false;
+        firstACK = 0;
+
+        //Spreading factor
         increaseSF = par("increaseSF");
-        ACKSF = par("initialLoRaSF");
+        firstACKSF = 0;
         packetsPerSF = par("packetsPerSF");
         packetsInSF = 0;
 
@@ -98,6 +101,8 @@ void LoRaNodeApp::initialize(int stage)
         WATCH(forwardedPackets);
         WATCH(receivedPackets);
         WATCH(AppACKReceived);
+        WATCH(firstACK);
+
         WATCH(loRaSF);
         WATCH(packetsInSF);
 
@@ -138,6 +143,8 @@ void LoRaNodeApp::finish()
     recordScalar("receivedPackets", receivedPackets);
     recordScalar("receivedADRCommands", receivedADRCommands);
     recordScalar("AppACKReceived", AppACKReceived);
+    recordScalar("firstACK", firstACK);
+    recordScalar("firstACKSF", firstACKSF);
 
     for (std::vector<LoRaAppPacket>::iterator lbptr = LoRaPacketBuffer.begin(); lbptr < LoRaPacketBuffer.end(); lbptr++) {
         LoRaPacketBuffer.erase(lbptr);
@@ -197,7 +204,10 @@ void LoRaNodeApp::handleMessageFromLowerLayer(cMessage *msg)
                 if (packet->getDestination() == nodeId) {
                     bubble("I received an ACK packet from the app for me!");
                     AppACKReceived = true;
-                    ACKSF = loRaSF;
+                    if (firstACK == 0) {
+                        firstACK = sentPackets;
+                        firstACKSF = loRaSF;
+                    }
                 }
                 else {
                     bubble("I received an ACK packet from the app for another node!");
@@ -290,10 +300,8 @@ void LoRaNodeApp::sendDataPacket()
         sprintf(text, "Sending my own packet #%d", sentPackets);
         bubble(text);
 
-        sentPackets++;
-
         dataPacket->setMsgType(DATA);
-        dataPacket->setDataInt(sentPackets);
+        dataPacket->setDataInt(sentPackets+1);
         dataPacket->setSource(nodeId);
         dataPacket->setVia(nodeId);
         // do dataPacket->setDestination(intuniform(0, numberOfNodes-1));
@@ -309,7 +317,7 @@ void LoRaNodeApp::sendDataPacket()
             dataPacket->setHops(numberOfHops);
         }
 
-        if (increaseSF) {
+        if (increaseSF && sentPackets > 0) {
 
             if ((packetsInSF+1) < packetsPerSF) {
                 packetsInSF++;
@@ -323,6 +331,7 @@ void LoRaNodeApp::sendDataPacket()
 
 
         }
+        sentPackets++;
     }
     // Forward other nodes' packets
     else {
@@ -413,3 +422,4 @@ bool LoRaNodeApp::isACKed(int nodeId)
 }
 
 } //end namespace inet
+
