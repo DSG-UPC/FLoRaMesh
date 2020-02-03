@@ -49,11 +49,12 @@ void NetworkServerApp::initialize(int stage)
             counterUniqueReceivedPacketsPerSF[i] = 0;
             counterOfSentPacketsFromNodesPerSF[i] = 0;
         }
-
-        //Watches
-        WATCH_VECTOR(receivedNodes);
-        WATCH_VECTOR(ACKReqNodes);
-        WATCH_VECTOR(ACKedNodes);
+        if (getEnvir()->isGUI()) {
+            //Watches
+            WATCH_VECTOR(receivedNodes);
+            WATCH_VECTOR(ACKReqNodes);
+            WATCH_VECTOR(ACKedNodes);
+        }
     }
 }
 
