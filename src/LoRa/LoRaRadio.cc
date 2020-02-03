@@ -64,11 +64,13 @@ void LoRaRadio::initialize(int stage)
         separateReceptionParts = par("separateReceptionParts");
         displayCommunicationRange = par("displayCommunicationRange");
         displayInterferenceRange = par("displayInterferenceRange");
-        WATCH(radioMode);
-        WATCH(receptionState);
-        WATCH(transmissionState);
-        WATCH(receivedSignalPart);
-        WATCH(transmittedSignalPart);
+        if (getEnvir()->isGUI()) {
+            WATCH(radioMode);
+            WATCH(receptionState);
+            WATCH(transmissionState);
+            WATCH(receivedSignalPart);
+            WATCH(transmittedSignalPart);
+        }
         iAmGateway = par("iAmGateway").boolValue();
     }
     else if (stage == INITSTAGE_PHYSICAL_LAYER) {

@@ -310,9 +310,9 @@ void NetworkServerApp::acknowledgePacket(LoRaMacFrame* pkt, L3Address pickedGate
         mgmtPacket->setDestination(rcvAppPacket->getSource());
         mgmtPacket->setSource(-1);
 
-        char text[32];
-        sprintf(text, "Nodeindex is #%d", nodeIndex);
-        bubble(text);
+        // char text[32];
+        // sprintf(text, "Nodeindex is #%d", nodeIndex);
+        // bubble(text);
 
         if(simTime() >= getSimulation()->getWarmupPeriod())
         {

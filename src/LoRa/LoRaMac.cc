@@ -107,17 +107,19 @@ void LoRaMac::initialize(int stage)
         numReceivedBroadcast = 0;
 
         // initialize watches
-        WATCH(fsm);
-        WATCH(backoffPeriod);
-        WATCH(retryCounter);
-        WATCH(numRetry);
-        WATCH(numSentWithoutRetry);
-        WATCH(numGivenUp);
-        WATCH(numCollision);
-        WATCH(numSent);
-        WATCH(numReceived);
-        WATCH(numSentBroadcast);
-        WATCH(numReceivedBroadcast);
+        if (getEnvir()->isGUI()) {
+            WATCH(fsm);
+            WATCH(backoffPeriod);
+            WATCH(retryCounter);
+            WATCH(numRetry);
+            WATCH(numSentWithoutRetry);
+            WATCH(numGivenUp);
+            WATCH(numCollision);
+            WATCH(numSent);
+            WATCH(numReceived);
+            WATCH(numSentBroadcast);
+            WATCH(numReceivedBroadcast);
+        }
     }
     else if (stage == INITSTAGE_LINK_LAYER)
         radio->setRadioMode(IRadio::RADIO_MODE_RECEIVER);

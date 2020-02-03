@@ -96,20 +96,22 @@ void LoRaNodeApp::initialize(int stage)
         packetsPerSF = par("packetsPerSF");
         packetsInSF = 0;
 
-        //WATCHES
-        WATCH(sentPackets);
-        WATCH(forwardedPackets);
-        WATCH(receivedPackets);
-        WATCH(AppACKReceived);
-        WATCH(firstACK);
+        //WATCHES only for GUI
+        if (getEnvir()->isGUI()) {
+            WATCH(sentPackets);
+            WATCH(forwardedPackets);
+            WATCH(receivedPackets);
+            WATCH(AppACKReceived);
+            WATCH(firstACK);
 
-        WATCH(loRaSF);
-        WATCH(packetsInSF);
+            WATCH(loRaSF);
+            WATCH(packetsInSF);
 
-        WATCH_VECTOR(neighbourNodes);
-        WATCH_VECTOR(ACKedNodes);
+            WATCH_VECTOR(neighbourNodes);
+            WATCH_VECTOR(ACKedNodes);
 
-        WATCH_VECTOR(LoRaPacketBuffer);
+            WATCH_VECTOR(LoRaPacketBuffer);
+        }
 
     }
 }
@@ -199,10 +201,10 @@ void LoRaNodeApp::handleMessageFromLowerLayer(cMessage *msg)
 
     switch (packet->getMsgType()) {
         case ACK :
-            bubble("ACK package received!");
+            // bubble("ACK package received!");
             //Check if the packet is for the current node
                 if (packet->getDestination() == nodeId) {
-                    bubble("I received an ACK packet from the app for me!");
+                    // bubble("I received an ACK packet from the app for me!");
                     AppACKReceived = true;
                     if (firstACK == 0) {
                         firstACK = sentPackets;
@@ -210,7 +212,7 @@ void LoRaNodeApp::handleMessageFromLowerLayer(cMessage *msg)
                     }
                 }
                 else {
-                    bubble("I received an ACK packet from the app for another node!");
+                    // bubble("I received an ACK packet from the app for another node!");
                     if (!isACKed(packet->getDestination())) {
                         ACKedNodes.push_back(packet->getDestination());
                     }
@@ -218,23 +220,23 @@ void LoRaNodeApp::handleMessageFromLowerLayer(cMessage *msg)
                 }
             break;
         case DATA:
-            bubble("DATA packet received!");
+            // bubble("DATA packet received!");
 
             //Check if the packet is for the current node
             if (packet->getDestination() == nodeId) {
-                bubble("I received a data packet for me!");
+                // bubble("I received a data packet for me!");
                 //TODO delete packet;
             }
             else {
                 //Keep track of neighbouring nodes
                 if (!isNeighbour(packet->getVia())){
-                    bubble ("New neighbour!");
+                    // bubble ("New neighbour!");
                     neighbourNodes.push_back(packet->getVia());
                 }
 
                 // Check for retransmissions of packages originally sent by this node
                 if (packet->getSource() == nodeId) {
-                    bubble("I received a LoRa packet originally sent by me!");
+                    // bubble("I received a LoRa packet originally sent by me!");
                     //TODO delete packet
                 }
                 //Forward packet
@@ -242,13 +244,13 @@ void LoRaNodeApp::handleMessageFromLowerLayer(cMessage *msg)
                     switch(packetForwarding) {
                         // No forwarding
                         case 0 :
-                            bubble("Packet forwarding disabled!");
+                            // bubble("Packet forwarding disabled!");
                             break;
 
                         //N-hop broadcast forwarding
                         case 1 :
                             if ( packet->getHops() > 0 ) {
-                                bubble("I received a LoRa packet to retransmit!");
+                                // bubble("I received a LoRa packet to retransmit!");
 
                                 LoRaAppPacket *dataPacket = new LoRaAppPacket("DataFrame");
                                 dataPacket->setMsgType(packet->getMsgType());
@@ -267,14 +269,14 @@ void LoRaNodeApp::handleMessageFromLowerLayer(cMessage *msg)
                                 LoRaPacketBuffer.push_back(*dataPacket);
                             }
                             else {
-                                bubble("I received a LoRa packet that has reached the maximum hop count!");
+                                // bubble("I received a LoRa packet that has reached the maximum hop count!");
                             }
                         }
                     }
                 }
             break;
         default:
-            bubble("Other type of packet received!");
+            // bubble("Other type of packet received!");
             break;
     }
 }
@@ -296,9 +298,9 @@ void LoRaNodeApp::sendDataPacket()
     // Only forward packets after sending own packets
     if (sentPackets < numberOfPacketsToSend) {
 
-        char text[32];
-        sprintf(text, "Sending my own packet #%d", sentPackets);
-        bubble(text);
+        // char text[32];
+        // sprintf(text, "Sending my own packet #%d", sentPackets);
+        // bubble(text);
 
         dataPacket->setMsgType(DATA);
         dataPacket->setDataInt(sentPackets+1);
@@ -321,12 +323,12 @@ void LoRaNodeApp::sendDataPacket()
 
             if ((packetsInSF+1) < packetsPerSF) {
                 packetsInSF++;
-                bubble("a");
+                // bubble("a");
             }
             else {
                 packetsInSF = 0;
                 increaseSFIfPossible();
-                bubble("b");
+                // bubble("b");
             }
 
 
@@ -336,14 +338,14 @@ void LoRaNodeApp::sendDataPacket()
     // Forward other nodes' packets
     else {
         if (LoRaPacketBuffer.size() > 0) {
-            bubble("Forwarding packet!");
+            // bubble("Forwarding packet!");
             forwardedPackets++;
 
             switch(packetForwarding) {
                 // No forwarding
                 case 0:
                 {
-                    bubble("Packet forwarding disabled!");
+                    // bubble("Packet forwarding disabled!");
                     break;
                 }
                 // Randomly pick one of the packets
@@ -351,9 +353,9 @@ void LoRaNodeApp::sendDataPacket()
                 {
                     packetPos = intuniform(0, LoRaPacketBuffer.size()-1);
 
-                    char text[32];
-                    sprintf(text, "Picking packet #%d", packetPos);
-                    bubble(text);
+                    //  text[32];
+                    // sprintf(text, "Picking packet #%d", packetPos);
+                    // bubble(text);
 
                     LoRaAppPacket *backDataPacket = &LoRaPacketBuffer.at(packetPos);
                     dataPacket = backDataPacket->dup();
@@ -394,9 +396,9 @@ void LoRaNodeApp::sendDataPacket()
 void LoRaNodeApp::increaseSFIfPossible()
 {
     if(loRaSF < 12) {
-        char text[32];
-        sprintf(text, "Increasing SF from %d to %d", loRaSF, loRaSF+1);
-        bubble(text);
+        // char text[32];
+        // sprintf(text, "Increasing SF from %d to %d", loRaSF, loRaSF+1);
+        // bubble(text);
         loRaSF++;
     }
 }
