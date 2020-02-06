@@ -163,7 +163,6 @@ void LoRaNodeApp::handleMessage(cMessage *msg)
 
             if ( ((numberOfPacketsToSend == 0 || sentPackets < numberOfPacketsToSend) && (!AppACKReceived || !stopOnACK)) ||
                   (forwardedPackets < numberOfPacketsToForward && LoRaPacketBuffer.size() > 0 ))
-
             {
                 sendDataPacket();
 
@@ -177,7 +176,9 @@ void LoRaNodeApp::handleMessage(cMessage *msg)
 
                 do {
                     //(ToDo) Warning: too small a par("timeToNextPacket") might cause a lock here
-                    timeToNextPacket = par("timeToNextPacket");
+                    //(ToDo) Note: simple workaround
+                    // timeToNextPacket = par("timeToNextPacket");
+                       timeToNextPacket = max(time, par("timeToNextPacket"));
                 } while(timeToNextPacket <= time);
 
                 selfDataPacket = new cMessage("selfDataPacket");
