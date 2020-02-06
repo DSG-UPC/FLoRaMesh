@@ -160,29 +160,45 @@ void LoRaNodeApp::handleMessage(cMessage *msg)
         if (msg == selfDataPacket) {
 
             if (simTime() >= getSimulation()->getWarmupPeriod())
-
-            if ( ((numberOfPacketsToSend == 0 || sentPackets < numberOfPacketsToSend) && (!AppACKReceived || !stopOnACK)) ||
-                  (forwardedPackets < numberOfPacketsToForward && LoRaPacketBuffer.size() > 0 ))
             {
-                sendDataPacket();
+                bool schedule = false;
+                // Check conditions for sending own data packet
+                if ((numberOfPacketsToSend == 0 || sentPackets < numberOfPacketsToSend) && (!AppACKReceived || !stopOnACK))
+                {
+                    sendDataPacket();
+                    schedule = true;
+                }
+                // Check conditions for forwarding own data packet
+                else if ( forwardedPackets < numberOfPacketsToForward)
+                {
+                    // Only go to the sendDataPacket() function if there is something to be forwarded
+                    if ( LoRaPacketBuffer.size() > 0 )
+                        sendDataPacket();
+                    // Schedule a self-message, since we have room for forwarding
+                    schedule = true;
+                }
 
-                double time;
-                if(loRaSF == 7) time = 7.808;
-                if(loRaSF == 8) time = 13.9776;
-                if(loRaSF == 9) time = 24.6784;
-                if(loRaSF == 10) time = 49.3568;
-                if(loRaSF == 11) time = 85.6064;
-                if(loRaSF == 12) time = 171.2128;
+                // Schedule the next self-message
+                if (schedule)
+                {
+                    double time;
+                    if(loRaSF == 7) time = 7.808;
+                    if(loRaSF == 8) time = 13.9776;
+                    if(loRaSF == 9) time = 24.6784;
+                    if(loRaSF == 10) time = 49.3568;
+                    if(loRaSF == 11) time = 85.6064;
+                    if(loRaSF == 12) time = 171.2128;
 
-                do {
-                    //(ToDo) Warning: too small a par("timeToNextPacket") might cause a lock here
-                    //(ToDo) Note: simple workaround
-                    // timeToNextPacket = par("timeToNextPacket");
-                       timeToNextPacket = max(time, par("timeToNextPacket"));
-                } while(timeToNextPacket <= time);
+                    do {
+                        //(ToDo) Warning: too small a par("timeToNextPacket") might cause a lock here
+                        //(ToDo) Note: simple workaround
+                        // timeToNextPacket = par("timeToNextPacket");
+                           timeToNextPacket = math::max(time, par("timeToNextPacket"));
+                    } while(timeToNextPacket <= time);
 
-                selfDataPacket = new cMessage("selfDataPacket");
-                scheduleAt(simTime() + timeToNextPacket, selfDataPacket);
+                    selfDataPacket = new cMessage("selfDataPacket");
+                    scheduleAt(simTime() + timeToNextPacket, selfDataPacket);
+                }
             }
         }
         delete msg;
@@ -293,11 +309,14 @@ bool LoRaNodeApp::handleOperationStage(LifecycleOperation *operation, int stage,
 void LoRaNodeApp::sendDataPacket()
 {
     LoRaAppPacket *dataPacket = new LoRaAppPacket("DataFrame");
+    bool transmit = false;
 
     int packetPos = 0;
 
-    // Only forward packets after sending own packets
+    // Own packets are [generated and] sent first, then we may forward others'
     if (sentPackets < numberOfPacketsToSend) {
+
+        transmit = true;
 
         // char text[32];
         // sprintf(text, "Sending my own packet #%d", sentPackets);
@@ -331,14 +350,15 @@ void LoRaNodeApp::sendDataPacket()
                 increaseSFIfPossible();
                 // bubble("b");
             }
-
-
         }
         sentPackets++;
     }
     // Forward other nodes' packets
     else {
         if (LoRaPacketBuffer.size() > 0) {
+
+            transmit = true;
+
             // bubble("Forwarding packet!");
             forwardedPackets++;
 
@@ -386,12 +406,12 @@ void LoRaNodeApp::sendDataPacket()
 
     //dataPacket->getOptions().setADRACKReq(true);
 
-    sfVector.record(loRaSF);
-    tpVector.record(loRaTP);
-
-    send(dataPacket, "appOut");
-
-    emit(LoRa_AppPacketSent, loRaSF);
+    if (transmit) {
+        sfVector.record(loRaSF);
+        tpVector.record(loRaTP);
+        send(dataPacket, "appOut");
+        emit(LoRa_AppPacketSent, loRaSF);
+    }
 }
 
 void LoRaNodeApp::increaseSFIfPossible()
