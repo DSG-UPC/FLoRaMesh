@@ -53,6 +53,8 @@ void LoRaNodeApp::initialize(int stage)
         sentPackets = 0;
         forwardedPackets = 0;
         receivedPackets = 0;
+        receivedACKs = 0;
+        receivedOwnACKs = 0;
         receivedADRCommands = 0;
         numberOfPacketsToSend = par("numberOfPacketsToSend");
         numberOfPacketsToForward = par("numberOfPacketsToForward");
@@ -101,6 +103,8 @@ void LoRaNodeApp::initialize(int stage)
             WATCH(sentPackets);
             WATCH(forwardedPackets);
             WATCH(receivedPackets);
+            WATCH(receivedACKs);
+            WATCH(receivedOwnACKs);
             WATCH(AppACKReceived);
             WATCH(firstACK);
 
@@ -143,6 +147,8 @@ void LoRaNodeApp::finish()
     recordScalar("sentPackets", sentPackets);
     recordScalar("forwardedPackets", forwardedPackets);
     recordScalar("receivedPackets", receivedPackets);
+    recordScalar("receivedACKs", receivedACKs);
+    recordScalar("receivedOwnACKs", receivedOwnACKs);
     recordScalar("receivedADRCommands", receivedADRCommands);
     recordScalar("AppACKReceived", AppACKReceived);
     recordScalar("firstACK", firstACK);
@@ -219,14 +225,25 @@ void LoRaNodeApp::handleMessageFromLowerLayer(cMessage *msg)
     switch (packet->getMsgType()) {
         case ACK :
             // bubble("ACK package received!");
+            receivedACKs++;
             //Check if the packet is for the current node
                 if (packet->getDestination() == nodeId) {
+                    receivedOwnACKs++;
                     // bubble("I received an ACK packet from the app for me!");
                     AppACKReceived = true;
+
+                    // Keep track of first ACKed packet via the data returned by the app
+                    // if (firstACK == 0) {
+                    //    firstACK = packet->getDataInt();
+                    //    firstACKSF = loRaSF;
+                    // }
+
+                    // Keep track of first ACKed packet via the sentPackets count
                     if (firstACK == 0) {
-                        firstACK = sentPackets;
-                        firstACKSF = loRaSF;
+                       firstACK = sentPackets;
+                       firstACKSF = loRaSF;
                     }
+
                 }
                 else {
                     // bubble("I received an ACK packet from the app for another node!");

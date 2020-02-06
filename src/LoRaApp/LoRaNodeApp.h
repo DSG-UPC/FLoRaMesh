@@ -54,6 +54,8 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         int sentPackets;
         int forwardedPackets;
         int receivedPackets;
+        int receivedACKs;
+        int receivedOwnACKs;
         int receivedADRCommands;
         int lastSentMeasurement;
         simtime_t timeToFirstPacket;
