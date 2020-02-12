@@ -77,7 +77,8 @@ class INET_API NetworkServerApp : public cSimpleModule, cListener
     double adrDeviceMargin;
     std::map<int, int> numReceivedPerNode;
 
-    std::vector<int> receivedNodes;
+    std::vector<int> allReceivedNodes;
+    std::vector<int> directReceivedNodes;
     std::vector<int> forwardedNodes;
     std::vector<int> forwardingNodes;
     std::vector<int> ACKReqNodes;
@@ -105,7 +106,8 @@ class INET_API NetworkServerApp : public cSimpleModule, cListener
 
     bool isForwardedNode(int nodeId);
     bool isForwardingNode(int nodeId);
-    bool isReceivedNode(int nodeId);
+    bool isAllReceivedNode(int nodeId);
+    bool isDirectReceivedNode(int nodeId);
     bool isACKedNode(int nodeId);
     bool isACKReqNode(int nodeId);
 
