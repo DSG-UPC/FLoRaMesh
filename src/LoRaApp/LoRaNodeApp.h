@@ -41,7 +41,7 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         virtual void handleMessage(cMessage *msg) override;
         virtual bool handleOperationStage(LifecycleOperation *operation, int stage, IDoneCallback *doneCallback) override;
         virtual bool isNeighbour(int neighbourId);
-        virtual bool isACKed(int neighbourId);
+        virtual bool isACKed(int nodeId);
 
         void handleMessageFromLowerLayer(cMessage *msg);
         std::pair<double,double> generateUniformCircleCoordinates(double radius, double gatewayX, double gatewayY);
