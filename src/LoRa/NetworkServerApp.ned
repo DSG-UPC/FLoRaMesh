@@ -26,6 +26,7 @@ simple NetworkServerApp like IUDPApp
     int destPort = default(-1);
     bool evaluateADRinServer = default(false);
     bool acknowledgePackets = default(false);
+    bool collectForwardingStats = default(false);
 	
 	string adrMethod = default("max");
 	double adrDeviceMargin = default(15);

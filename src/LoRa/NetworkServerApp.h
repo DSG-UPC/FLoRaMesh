@@ -78,6 +78,8 @@ class INET_API NetworkServerApp : public cSimpleModule, cListener
     std::map<int, int> numReceivedPerNode;
 
     std::vector<int> receivedNodes;
+    std::vector<int> forwardedNodes;
+    std::vector<int> forwardingNodes;
     std::vector<int> ACKReqNodes;
     std::vector<int> ACKedNodes;
 
@@ -95,9 +97,17 @@ class INET_API NetworkServerApp : public cSimpleModule, cListener
     void processScheduledPacket(cMessage* selfMsg);
     void evaluateADR(LoRaMacFrame* pkt, L3Address pickedGateway, double SNIRinGW, double RSSIinGW);
     void acknowledgePacket(LoRaMacFrame* pkt, L3Address pickedGateway, double SNIRinGW, double RSSIinGW);
+    void forwardingStats(LoRaMacFrame* pkt);
     void receiveSignal(cComponent *source, simsignal_t signalID, long value, cObject *details) override;
     bool evaluateADRinServer;
     bool acknowledgePackets;
+    bool collectForwardingStats;
+
+    bool isForwardedNode(int nodeId);
+    bool isForwardingNode(int nodeId);
+    bool isReceivedNode(int nodeId);
+    bool isACKedNode(int nodeId);
+    bool isACKReqNode(int nodeId);
 
     cHistogram receivedRSSI;
   public:
