@@ -224,7 +224,6 @@ void LoRaNodeApp::handleMessageFromLowerLayer(cMessage *msg)
 
     switch (packet->getMsgType()) {
         case ACK :
-            // bubble("ACK package received!");
             receivedACKs++;
             //Check if the packet is for the current node
                 if (packet->getDestination() == nodeId) {
@@ -306,6 +305,8 @@ void LoRaNodeApp::handleMessageFromLowerLayer(cMessage *msg)
                                 // bubble("I received a LoRa packet that has reached the maximum hop count!");
                             }
                             break;
+
+                        //N-hop broadcast forwarding for non-acked nodes
                         case 2 :
                             if ( packet->getHops() > 0 ) {
                             // bubble("I received a LoRa packet to retransmit!");
@@ -327,7 +328,7 @@ void LoRaNodeApp::handleMessageFromLowerLayer(cMessage *msg)
                             LoRaPacketBuffer.push_back(*dataPacket);
                             }
                             else {
-                                // bubble("I received a LoRa packet that has reached the maximum hop count!");
+                            // bubble("I received a LoRa packet that has reached the maximum hop count!");
                             }
                             break;
                         }
@@ -416,10 +417,6 @@ void LoRaNodeApp::sendDataPacket()
                 {
                     packetPos = intuniform(0, LoRaPacketBuffer.size()-1);
 
-                    //  text[32];
-                    // sprintf(text, "Picking packet #%d", packetPos);
-                    // bubble(text);
-
                     LoRaAppPacket *randomDataPacket = &LoRaPacketBuffer.at(packetPos);
                     dataPacket = randomDataPacket->dup();
                     LoRaPacketBuffer.erase(LoRaPacketBuffer.begin()+packetPos);
@@ -428,21 +425,19 @@ void LoRaNodeApp::sendDataPacket()
                 // Randomly pick one of the packets, but discard those that have been ACKed
                 case 2:
                 {
-                    while (LoRaPacketBuffer.size() > 0){
+                    bubble("booo");
+                    bool fwdPacket = false;
+
+                    while (LoRaPacketBuffer.size() > 0 || fwdPacket == false){
                         packetPos = intuniform(0, LoRaPacketBuffer.size()-1);
 
                         LoRaAppPacket *randomDataPacket = &LoRaPacketBuffer.at(packetPos);
                         dataPacket = randomDataPacket->dup();
                         LoRaPacketBuffer.erase(LoRaPacketBuffer.begin()+packetPos);
 
-                        // Non-ACKed node (to the best of this node's knowledge)
                         if ( !isACKed(dataPacket->getSource()) )
                         {
-                            break;
-                        }
-                        else
-                        {
-                            delete dataPacket;
+                            fwdPacket= true;
                         }
                     }
                     break;
