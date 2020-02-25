@@ -428,7 +428,7 @@ void LoRaNodeApp::sendDataPacket()
                     bubble("booo");
                     bool fwdPacket = false;
 
-                    while (LoRaPacketBuffer.size() > 0 || fwdPacket == false){
+                    while (LoRaPacketBuffer.size() > 0 && fwdPacket == false){
                         packetPos = intuniform(0, LoRaPacketBuffer.size()-1);
 
                         LoRaAppPacket *randomDataPacket = &LoRaPacketBuffer.at(packetPos);
