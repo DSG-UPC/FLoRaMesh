@@ -23,10 +23,14 @@ simple LoRaNodeApp
     parameters:
         @signal[LoRa_AppPacketSent](type=long); // optional
         @statistic[LoRa_AppPacketSent](source=LoRa_AppPacketSent; record=count);
-        int numberOfPacketsToSend = default(1);
-        int numberOfPacketsToForward = default(0);
-        volatile double timeToFirstPacket @unit(s) = default(10s);
-        volatile double timeToNextPacket @unit(s) = default(10s);
+        int numberOfCalibrationPacketsToSend = default(1);
+        int numberOfDataPacketsToSend = default(1);
+        int numberOfForwardedPacketsToSend = default(0);
+        volatile double timeToFirstCalibrationPacket @unit(s) = default(10s);
+        volatile double timeToNextCalibrationPacket @unit(s) = default(10s);
+        volatile double timeToFirstDataPacket @unit(s) = default(10s);
+        volatile double timeToNextDataPacket @unit(s) = default(10s);
+        volatile double calibrationPeriod @unit(s) = default(24h);
         double initialLoRaTP @unit(dBm) = default(14dBm);
         double initialLoRaCF @unit(Hz) = default(868MHz);
         int initialLoRaSF = default(12);
@@ -40,7 +44,9 @@ simple LoRaNodeApp
         int numberOfHops;
         bool requestACKfromApp = default(false);
         bool stopOnACK = default(true);
+        bool stopOnCAL = default(true);
         bool AppACKReceived = default(false);
+        bool AppADRReceived = default(false);
         bool increaseSF = default(false);
         int packetsPerSF = default(1);
         int packetsInSF = default(0);

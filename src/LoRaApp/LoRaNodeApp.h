@@ -47,27 +47,38 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         std::pair<double,double> generateUniformCircleCoordinates(double radius, double gatewayX, double gatewayY);
         void sendJoinRequest();
         void sendDataPacket();
+        void sendCalibrationPacket();
         void sendDownMgmtPacket();
 
-        int numberOfPacketsToSend;
-        int numberOfPacketsToForward;
+        int numberOfDataPacketsToSend;
+        int numberOfCalibrationPacketsToSend;
+        int numberOfForwardedPacketsToSend;
         int sentPackets;
-        int forwardedPackets;
+        int sentDataPackets;
+        int sentCalibrationPackets;
+        int sentForwardedPackets;
         int receivedPackets;
+        int receivedCalibrationPackets;
+        int receivedDataPackets;
+        int receivedForwardedPackets;
         int receivedACKs;
         int receivedOwnACKs;
         int receivedADRCommands;
         int lastSentMeasurement;
-        simtime_t timeToFirstPacket;
-        simtime_t timeToNextPacket;
+
+        simtime_t calibrationPeriod;
+        simtime_t timeToFirstDataPacket;
+        simtime_t timeToNextDataPacket;
+        simtime_t timeToFirstCalibrationPacket;
+        simtime_t timeToNextCalibrationPacket;
 
         cMessage *configureLoRaParameters;
         cMessage *selfDataPacket;
+        cMessage *selfCalibrationPacket;
 
         //history of sent packets;
         cOutVector sfVector;
         cOutVector tpVector;
-
 
         //variables to control ADR
         bool evaluateADRinNode;
@@ -94,7 +105,9 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         //Application parameters
         bool requestACKfromApp;
         bool stopOnACK;
+        bool stopOnCAL;
         bool AppACKReceived;
+        bool AppADRReceived;
         int firstACK;
 
 

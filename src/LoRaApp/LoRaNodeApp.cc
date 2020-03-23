@@ -38,26 +38,37 @@ void LoRaNodeApp::initialize(int stage)
         bool isOperational;
         NodeStatus *nodeStatus = dynamic_cast<NodeStatus *>(findContainingNode(this)->getSubmodule("status"));
         isOperational = (!nodeStatus) || nodeStatus->getState() == NodeStatus::UP;
-        if (!isOperational)
+        if (!isOperational) {
             throw cRuntimeError("This module doesn't support starting in node DOWN state");
-        do {
-            timeToFirstPacket = par("timeToFirstPacket");
-            EV << "Wylosowalem czas :" << timeToFirstPacket << endl;
-            //if(timeToNextPacket < 5) error("Time to next packet must be grater than 3");
-        } while(timeToFirstPacket <= 5);
+        }
 
-        //timeToFirstPacket = par("timeToFirstPacket");
-        selfDataPacket = new cMessage("selfDataPacket");
-        scheduleAt(simTime()+timeToFirstPacket, selfDataPacket);
+        timeToFirstDataPacket = math::max(5,0);// par("timeToFirstCalibrationPacket"));
 
         sentPackets = 0;
-        forwardedPackets = 0;
+        sentCalibrationPackets = 0;
+        sentDataPackets = 0;
+        sentForwardedPackets = 0;
         receivedPackets = 0;
+        receivedCalibrationPackets = 0;
+        receivedDataPackets = 0;
+        receivedForwardedPackets = 0;
         receivedACKs = 0;
         receivedOwnACKs = 0;
         receivedADRCommands = 0;
-        numberOfPacketsToSend = par("numberOfPacketsToSend");
-        numberOfPacketsToForward = par("numberOfPacketsToForward");
+
+        numberOfDataPacketsToSend = par("numberOfDataPacketsToSend");
+        numberOfCalibrationPacketsToSend = par("numberOfCalibrationPacketsToSend");
+        numberOfForwardedPacketsToSend = par("numberOfForwardedPacketsToSend");
+
+        calibrationPeriod = par("calibrationPeriod");
+        timeToFirstCalibrationPacket = par("timeToFirstCalibrationPacket");
+        timeToNextCalibrationPacket = par("timeToNextCalibrationPacket");
+
+        selfCalibrationPacket = new cMessage("selfCalibrationPacket");
+        scheduleAt(simTime()+getSimulation()->getWarmupPeriod()+timeToFirstCalibrationPacket, selfCalibrationPacket);
+
+        selfDataPacket = new cMessage("selfDataPacket");
+        scheduleAt(simTime()+getSimulation()->getWarmupPeriod()+calibrationPeriod+timeToFirstDataPacket, selfDataPacket);
 
         LoRa_AppPacketSent = registerSignal("LoRa_AppPacketSent");
 
@@ -90,6 +101,7 @@ void LoRaNodeApp::initialize(int stage)
         requestACKfromApp = par("requestACKfromApp");
         stopOnACK = par("stopOnACK");
         AppACKReceived = false;
+        AppADRReceived = false;
         firstACK = 0;
 
         //Spreading factor
@@ -101,10 +113,13 @@ void LoRaNodeApp::initialize(int stage)
         //WATCHES only for GUI
         if (getEnvir()->isGUI()) {
             WATCH(sentPackets);
-            WATCH(forwardedPackets);
+            WATCH(sentCalibrationPackets);
+            WATCH(sentDataPackets);
+            WATCH(sentForwardedPackets);
             WATCH(receivedPackets);
             WATCH(receivedACKs);
             WATCH(receivedOwnACKs);
+            WATCH(AppADRReceived);
             WATCH(AppACKReceived);
             WATCH(firstACK);
 
@@ -145,7 +160,9 @@ void LoRaNodeApp::finish()
     recordScalar("finalTP", loRaTP);
     recordScalar("finalSF", loRaSF);
     recordScalar("sentPackets", sentPackets);
-    recordScalar("forwardedPackets", forwardedPackets);
+    recordScalar("sentCalibrationPackets", sentCalibrationPackets);
+    recordScalar("sentDataPackets", sentDataPackets);
+    recordScalar("sentForwardedPackets", sentForwardedPackets);
     recordScalar("receivedPackets", receivedPackets);
     recordScalar("receivedACKs", receivedACKs);
     recordScalar("receivedOwnACKs", receivedOwnACKs);
@@ -161,21 +178,23 @@ void LoRaNodeApp::finish()
 
 void LoRaNodeApp::handleMessage(cMessage *msg)
 {
+    // Handle selfMessage
     if (msg->isSelfMessage()) {
 
+        // selfMessage for sending data packets
         if (msg == selfDataPacket) {
 
             if (simTime() >= getSimulation()->getWarmupPeriod())
             {
                 bool schedule = false;
                 // Check conditions for sending own data packet
-                if ((numberOfPacketsToSend == 0 || sentPackets < numberOfPacketsToSend) && (!AppACKReceived || !stopOnACK))
+                if ((numberOfDataPacketsToSend == 0 || sentDataPackets < numberOfDataPacketsToSend) && (!AppACKReceived || !stopOnACK))
                 {
                     sendDataPacket();
                     schedule = true;
                 }
                 // Check conditions for forwarding own data packet
-                else if ( forwardedPackets < numberOfPacketsToForward)
+                else if ( sentForwardedPackets < numberOfForwardedPacketsToSend)
                 {
                     // Only go to the sendDataPacket() function if there is something to be forwarded
                     if ( LoRaPacketBuffer.size() > 0 )
@@ -195,15 +214,43 @@ void LoRaNodeApp::handleMessage(cMessage *msg)
                     if(loRaSF == 11) time = 85.6064;
                     if(loRaSF == 12) time = 171.2128;
 
-                    do {
-                        //(ToDo) Warning: too small a par("timeToNextPacket") might cause a lock here
-                        //(ToDo) Note: simple workaround
-                        // timeToNextPacket = par("timeToNextPacket");
-                           timeToNextPacket = math::max(time, par("timeToNextPacket"));
-                    } while(timeToNextPacket <= time);
+                    timeToNextDataPacket = math::max(time, par("timeToNextDataPacket"));
 
                     selfDataPacket = new cMessage("selfDataPacket");
-                    scheduleAt(simTime() + timeToNextPacket, selfDataPacket);
+                    scheduleAt(simTime() + timeToNextDataPacket, selfDataPacket);
+                }
+            }
+        }
+        // selfMessage for sending calibration packets
+        else if (msg == selfCalibrationPacket) {
+
+            // Check that we are in the calibration period
+            if (simTime() >= getSimulation()->getWarmupPeriod() && simTime() < getSimulation()->getWarmupPeriod() + calibrationPeriod)
+            {
+                // Check conditions for sending calibration packet: infinite packets to send or maximum packets not yet reached, and calibration not yet achieved
+                if ( (numberOfCalibrationPacketsToSend == 0 || sentCalibrationPackets < numberOfCalibrationPacketsToSend) && !(AppADRReceived)) {
+                    sentCalibrationPackets++;
+                    sentPackets++;
+                    sendCalibrationPacket();
+                }
+
+                // Minimum delay until next self-message, depending on the SF in use
+                double time;
+                if(loRaSF == 7) time = 7.808;
+                if(loRaSF == 8) time = 13.9776;
+                if(loRaSF == 9) time = 24.6784;
+                if(loRaSF == 10) time = 49.3568;
+                if(loRaSF == 11) time = 85.6064;
+                if(loRaSF == 12) time = 171.2128;
+
+                timeToNextCalibrationPacket = math::max(time, par("timeToNextCalibrationPacket"));
+
+                // Conditions for scheduling next selfCalibrationPacket: infinite packets to send or maximum packets not yet reached, and calibration period still going on
+                if ( (numberOfCalibrationPacketsToSend == 0 || sentCalibrationPackets < numberOfCalibrationPacketsToSend) &&
+                     (simTime() + timeToNextCalibrationPacket < getSimulation()->getWarmupPeriod() + calibrationPeriod) )
+                {
+                    selfCalibrationPacket = new cMessage("selfCalibrationPacket");
+                    scheduleAt(simTime() + timeToNextCalibrationPacket, selfCalibrationPacket);
                 }
             }
         }
@@ -349,15 +396,57 @@ bool LoRaNodeApp::handleOperationStage(LifecycleOperation *operation, int stage,
     return true;
 }
 
+void LoRaNodeApp::sendCalibrationPacket()
+{
+    LoRaAppPacket *calibrationPacket = new LoRaAppPacket("DataFrame");
+    bool transmit = false;
+
+    int packetPos = 0;
+
+    // Own packets are [generated and] sent first, then we may forward others'
+    if (sentCalibrationPackets < numberOfCalibrationPacketsToSend) {
+        transmit = true;
+
+        calibrationPacket->setMsgType(TXCONFIG);
+        calibrationPacket->setDataInt(sentCalibrationPackets+1);
+        calibrationPacket->setSource(nodeId);
+        calibrationPacket->setVia(nodeId);
+        calibrationPacket->setDestination(-1);
+
+        calibrationPacket->getOptions().setAppACKReq(true);
+        calibrationPacket->setHops(0);
+    }
+
+    //add LoRa control info
+    LoRaMacControlInfo *cInfo = new LoRaMacControlInfo;
+    cInfo->setLoRaTP(loRaTP);
+    cInfo->setLoRaCF(loRaCF);
+    cInfo->setLoRaSF(loRaSF);
+    cInfo->setLoRaBW(loRaBW);
+    cInfo->setLoRaCR(loRaCR);
+
+    calibrationPacket->setControlInfo(cInfo);
+
+    //calibrationPacket->getOptions().setADRACKReq(true);
+
+    if (transmit) {
+        sfVector.record(loRaSF);
+        tpVector.record(loRaTP);
+        send(calibrationPacket, "appOut");
+        emit(LoRa_AppPacketSent, loRaSF);
+    }
+}
+
 void LoRaNodeApp::sendDataPacket()
 {
+    bubble("Sending a data packet!");
     LoRaAppPacket *dataPacket = new LoRaAppPacket("DataFrame");
     bool transmit = false;
 
     int packetPos = 0;
 
     // Own packets are [generated and] sent first, then we may forward others'
-    if (sentPackets < numberOfPacketsToSend) {
+    if (sentDataPackets < numberOfDataPacketsToSend) {
 
         transmit = true;
 
@@ -394,6 +483,7 @@ void LoRaNodeApp::sendDataPacket()
                 // bubble("b");
             }
         }
+        sentDataPackets++;
         sentPackets++;
     }
     // Forward other nodes' packets
@@ -401,9 +491,6 @@ void LoRaNodeApp::sendDataPacket()
         if (LoRaPacketBuffer.size() > 0) {
 
             transmit = true;
-
-            // bubble("Forwarding packet!");
-            forwardedPackets++;
 
             switch(packetForwarding) {
                 // No forwarding
@@ -450,6 +537,9 @@ void LoRaNodeApp::sendDataPacket()
                     LoRaPacketBuffer.erase(LoRaPacketBuffer.begin());
                 }
             }
+
+            sentForwardedPackets++;
+            sentPackets++;
         }
     }
 
