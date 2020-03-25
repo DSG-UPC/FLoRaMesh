@@ -33,8 +33,8 @@ class LoRaOptions {
     double LoRaBW = -1;
     int LoRaCR = -1;
     bool UseHeader = true;
-    bool ADRACKReq = false;
     bool AppACKReq = false;
+    bool AppADRReq = false;
 }
 
 packet LoRaAppPacket {

@@ -63,7 +63,8 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         int receivedForwardedPackets;
         int receivedACKs;
         int receivedOwnACKs;
-        int receivedADRCommands;
+        int receivedADRs;
+        int receivedOwnADRs;
         int lastSentMeasurement;
 
         simtime_t calibrationPeriod;
@@ -109,11 +110,13 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         bool AppACKReceived;
         bool AppADRReceived;
         int firstACK;
+        int firstADR;
 
 
         //Spreading factor
         bool increaseSF;
         int firstACKSF;
+        int firstADRSF;
         int packetsPerSF;
         int packetsInSF;
 

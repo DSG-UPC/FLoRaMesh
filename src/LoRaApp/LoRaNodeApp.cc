@@ -53,8 +53,9 @@ void LoRaNodeApp::initialize(int stage)
         receivedDataPackets = 0;
         receivedForwardedPackets = 0;
         receivedACKs = 0;
+        receivedADRs = 0;
         receivedOwnACKs = 0;
-        receivedADRCommands = 0;
+        receivedOwnADRs = 0;
 
         numberOfDataPacketsToSend = par("numberOfDataPacketsToSend");
         numberOfCalibrationPacketsToSend = par("numberOfCalibrationPacketsToSend");
@@ -103,10 +104,12 @@ void LoRaNodeApp::initialize(int stage)
         AppACKReceived = false;
         AppADRReceived = false;
         firstACK = 0;
+        firstADR = 0;
 
         //Spreading factor
         increaseSF = par("increaseSF");
         firstACKSF = 0;
+        firstADRSF = 0;
         packetsPerSF = par("packetsPerSF");
         packetsInSF = 0;
 
@@ -119,11 +122,17 @@ void LoRaNodeApp::initialize(int stage)
             WATCH(receivedPackets);
             WATCH(receivedACKs);
             WATCH(receivedOwnACKs);
+            WATCH(receivedADRs);
+            WATCH(receivedOwnADRs);
             WATCH(AppADRReceived);
             WATCH(AppACKReceived);
             WATCH(firstACK);
+            WATCH(firstACKSF);
+            WATCH(firstADR);
+            WATCH(firstADRSF);
 
             WATCH(loRaSF);
+            WATCH(loRaTP);
             WATCH(packetsInSF);
 
             WATCH_VECTOR(neighbourNodes);
@@ -166,10 +175,13 @@ void LoRaNodeApp::finish()
     recordScalar("receivedPackets", receivedPackets);
     recordScalar("receivedACKs", receivedACKs);
     recordScalar("receivedOwnACKs", receivedOwnACKs);
-    recordScalar("receivedADRCommands", receivedADRCommands);
+    recordScalar("receivedADRs", receivedADRs);
+    recordScalar("receivedOwnADRs", receivedOwnADRs);
     recordScalar("AppACKReceived", AppACKReceived);
     recordScalar("firstACK", firstACK);
     recordScalar("firstACKSF", firstACKSF);
+    recordScalar("firstADR", firstADR);
+    recordScalar("firstADRSF", firstADRSF);
 
     for (std::vector<LoRaAppPacket>::iterator lbptr = LoRaPacketBuffer.begin(); lbptr < LoRaPacketBuffer.end(); lbptr++) {
         LoRaPacketBuffer.erase(lbptr);
@@ -184,7 +196,7 @@ void LoRaNodeApp::handleMessage(cMessage *msg)
         // selfMessage for sending data packets
         if (msg == selfDataPacket) {
 
-            if (simTime() >= getSimulation()->getWarmupPeriod())
+            if (simTime() >= getSimulation()->getWarmupPeriod()+calibrationPeriod)
             {
                 bool schedule = false;
                 // Check conditions for sending own data packet
@@ -247,7 +259,7 @@ void LoRaNodeApp::handleMessage(cMessage *msg)
 
                 // Conditions for scheduling next selfCalibrationPacket: infinite packets to send or maximum packets not yet reached, and calibration period still going on
                 if ( (numberOfCalibrationPacketsToSend == 0 || sentCalibrationPackets < numberOfCalibrationPacketsToSend) &&
-                     (simTime() + timeToNextCalibrationPacket < getSimulation()->getWarmupPeriod() + calibrationPeriod) )
+                     (simTime() + timeToNextCalibrationPacket < getSimulation()->getWarmupPeriod() + calibrationPeriod) && !(AppADRReceived) )
                 {
                     selfCalibrationPacket = new cMessage("selfCalibrationPacket");
                     scheduleAt(simTime() + timeToNextCalibrationPacket, selfCalibrationPacket);
@@ -342,7 +354,7 @@ void LoRaNodeApp::handleMessageFromLowerLayer(cMessage *msg)
                                 dataPacket->setVia(nodeId);
 
                                 dataPacket->getOptions().setAppACKReq(packet->getOptions().getAppACKReq());
-                                dataPacket->getOptions().setADRACKReq(packet->getOptions().getADRACKReq());
+                                dataPacket->getOptions().setAppADRReq(packet->getOptions().getAppADRReq());
 
                                 dataPacket->setHops(packet->getHops() -1 );
 
@@ -368,7 +380,7 @@ void LoRaNodeApp::handleMessageFromLowerLayer(cMessage *msg)
                             dataPacket->setVia(nodeId);
 
                             dataPacket->getOptions().setAppACKReq(packet->getOptions().getAppACKReq());
-                            dataPacket->getOptions().setADRACKReq(packet->getOptions().getADRACKReq());
+                            dataPacket->getOptions().setAppADRReq(packet->getOptions().getAppADRReq());
 
                             dataPacket->setHops(packet->getHops() -1 );
 
@@ -381,6 +393,38 @@ void LoRaNodeApp::handleMessageFromLowerLayer(cMessage *msg)
                         }
                     }
                 }
+            break;
+        case TXCONFIG :
+            receivedADRs++;
+            //Check if the packet is for the current node
+                if (packet->getDestination() == nodeId) {
+                    receivedOwnADRs++;
+                    // bubble("I received an ACK packet from the app for me!");
+                    AppADRReceived = true;
+
+                    // Keep track of first ACKed packet via the sentPackets count
+                    if (firstADR == 0) {
+                       firstADR = sentCalibrationPackets;
+                       firstADRSF = loRaSF;
+                    }
+
+                    // (ToDo): Get received transmission settings and apply them
+                    // but the network server replies weird too optimistic settings.
+                    // LoRaOptions ADROptions = packet->getOptions();
+                    // loRaTP = ADROptions.getLoRaTP();
+                    // loRaSF = ADROptions.getLoRaSF();
+
+                }
+                // (ToDo): By now, do nothing with TXCONFIG packets received.
+                // They might be useful for the forwarding phase in order to decide with
+                // nodes' packets to forward, which SF to listen to, etc.
+                // else {
+                    // bubble("I received an ADR packet from the app for another node!");
+                   // if (!isACKed(packet->getDestination())) {
+                   //     ACKedNodes.push_back(packet->getDestination());
+                   // }
+                    //
+                // }
             break;
         default:
             // bubble("Other type of packet received!");
@@ -404,30 +448,38 @@ void LoRaNodeApp::sendCalibrationPacket()
     int packetPos = 0;
 
     // Own packets are [generated and] sent first, then we may forward others'
-    if (sentCalibrationPackets < numberOfCalibrationPacketsToSend) {
+    if (numberOfCalibrationPacketsToSend == 0 || sentCalibrationPackets < numberOfCalibrationPacketsToSend) {
         transmit = true;
 
         calibrationPacket->setMsgType(TXCONFIG);
-        calibrationPacket->setDataInt(sentCalibrationPackets+1);
+        calibrationPacket->setDataInt(sentCalibrationPackets);
         calibrationPacket->setSource(nodeId);
         calibrationPacket->setVia(nodeId);
         calibrationPacket->setDestination(-1);
 
-        calibrationPacket->getOptions().setAppACKReq(true);
+        calibrationPacket->getOptions().setAppADRReq(true);
         calibrationPacket->setHops(0);
     }
 
+    if (increaseSF) {
+        if ((packetsInSF) == packetsPerSF) {
+            packetsInSF = 1;
+            increaseSFIfPossible();
+        }
+        else {
+            packetsInSF++;
+        }
+     }
+
     //add LoRa control info
-    LoRaMacControlInfo *cInfo = new LoRaMacControlInfo;
-    cInfo->setLoRaTP(loRaTP);
-    cInfo->setLoRaCF(loRaCF);
-    cInfo->setLoRaSF(loRaSF);
-    cInfo->setLoRaBW(loRaBW);
-    cInfo->setLoRaCR(loRaCR);
+        LoRaMacControlInfo *cInfo = new LoRaMacControlInfo;
+        cInfo->setLoRaTP(loRaTP);
+        cInfo->setLoRaCF(loRaCF);
+        cInfo->setLoRaSF(loRaSF);
+        cInfo->setLoRaBW(loRaBW);
+        cInfo->setLoRaCR(loRaCR);
 
     calibrationPacket->setControlInfo(cInfo);
-
-    //calibrationPacket->getOptions().setADRACKReq(true);
 
     if (transmit) {
         sfVector.record(loRaSF);
@@ -471,18 +523,16 @@ void LoRaNodeApp::sendDataPacket()
             dataPacket->setHops(numberOfHops);
         }
 
-        if (increaseSF && sentPackets > 0) {
-
-            if ((packetsInSF+1) < packetsPerSF) {
-                packetsInSF++;
-                // bubble("a");
+        if (increaseSF) {
+            if ((packetsInSF) == packetsPerSF) {
+                packetsInSF = 1;
+                increaseSFIfPossible();
             }
             else {
-                packetsInSF = 0;
-                increaseSFIfPossible();
-                // bubble("b");
+                packetsInSF++;
             }
-        }
+         }
+
         sentDataPackets++;
         sentPackets++;
     }
@@ -553,7 +603,7 @@ void LoRaNodeApp::sendDataPacket()
 
     dataPacket->setControlInfo(cInfo);
 
-    //dataPacket->getOptions().setADRACKReq(true);
+    //dataPacket->getOptions().setAppADRReq(true);
 
     if (transmit) {
         sfVector.record(loRaSF);

@@ -65,6 +65,8 @@ class INET_API NetworkServerApp : public cSimpleModule, cListener
 {
   protected:
     std::vector<knownNode> knownNodes;
+    std::vector<knownNode> calibrationKnownNodes;
+    std::vector<knownNode> dataKnownNodes;
     std::vector<knownGW> knownGateways;
     std::vector<receivedPacket> receivedPackets;
     int localPort = -1, destPort = -1;
@@ -76,8 +78,10 @@ class INET_API NetworkServerApp : public cSimpleModule, cListener
     std::string adrMethod;
     double adrDeviceMargin;
     std::map<int, int> numReceivedPerNode;
+    simtime_t calibrationPeriod;
 
     std::vector<int> allReceivedNodes;
+    std::vector<int> calibrationReceivedNodes;
     std::vector<int> directReceivedNodes;
     std::vector<int> forwardedNodes;
     std::vector<int> forwardingNodes;
@@ -96,8 +100,7 @@ class INET_API NetworkServerApp : public cSimpleModule, cListener
     void updateKnownNodes(LoRaMacFrame* pkt);
     void addPktToProcessingTable(LoRaMacFrame* pkt);
     void processScheduledPacket(cMessage* selfMsg);
-    void evaluateADR(LoRaMacFrame* pkt, L3Address pickedGateway, double SNIRinGW, double RSSIinGW);
-    void acknowledgePacket(LoRaMacFrame* pkt, L3Address pickedGateway, double SNIRinGW, double RSSIinGW);
+    void evaluateADRandAcknowledgePacket(LoRaMacFrame* pkt, L3Address pickedGateway, double SNIRinGW, double RSSIinGW);
     void forwardingStats(LoRaMacFrame* pkt);
     void receiveSignal(cComponent *source, simsignal_t signalID, long value, cObject *details) override;
     bool evaluateADRinServer;

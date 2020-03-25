@@ -18,21 +18,23 @@ import inet.applications.contract.IUDPApp;
 
 simple NetworkServerApp like IUDPApp
 {
-    @class(inet::NetworkServerApp);
-    @signal[LoRa_ServerPacketReceived](type=bool); // optional
-    @statistic[LoRa_ServerPacketReceived](source=LoRa_ServerPacketReceived; record=count);
-    int localPort = default(-1);  // local port (-1: use ephemeral port)
-    string localAddress = default("");
-    int destPort = default(-1);
-    bool evaluateADRinServer = default(false);
-    bool acknowledgePackets = default(false);
-    bool collectForwardingStats = default(false);
-	
-	string adrMethod = default("max");
-	double adrDeviceMargin = default(15);
-	
-    gates:
-    output udpOut;
-    input udpIn;
+	parameters:
+        @class(inet::NetworkServerApp);
+        @signal[LoRa_ServerPacketReceived](type=bool); // optional
+        @statistic[LoRa_ServerPacketReceived](source=LoRa_ServerPacketReceived; record=count);
+        int localPort = default(-1);  // local port (-1: use ephemeral port)
+        string localAddress = default("");
+        int destPort = default(-1);
+        bool evaluateADRinServer = default(false);
+        bool acknowledgePackets = default(false);
+        bool collectForwardingStats = default(false);
 
+        string adrMethod = default("max");
+        double adrDeviceMargin = default(15);
+
+        volatile double calibrationPeriod @unit(s) = default(24h);
+
+    gates:
+        output udpOut;
+        input udpIn;
 }
