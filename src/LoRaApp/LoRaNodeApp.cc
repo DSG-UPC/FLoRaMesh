@@ -42,7 +42,7 @@ void LoRaNodeApp::initialize(int stage)
             throw cRuntimeError("This module doesn't support starting in node DOWN state");
         }
 
-        timeToFirstDataPacket = math::max(5,0);// par("timeToFirstCalibrationPacket"));
+        timeToFirstDataPacket = math::max(5, par("timeToFirstCalibrationPacket"));
 
         sentPackets = 0;
         sentCalibrationPackets = 0;
