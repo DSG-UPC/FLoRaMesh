@@ -400,7 +400,7 @@ void LoRaNodeApp::sendDataPacket()
     else {
         if (LoRaPacketBuffer.size() > 0) {
 
-            transmit = true;
+            transmit = false;
 
             // bubble("Forwarding packet!");
             forwardedPackets++;
@@ -420,15 +420,14 @@ void LoRaNodeApp::sendDataPacket()
                     LoRaAppPacket *randomDataPacket = &LoRaPacketBuffer.at(packetPos);
                     dataPacket = randomDataPacket->dup();
                     LoRaPacketBuffer.erase(LoRaPacketBuffer.begin()+packetPos);
+                    transmit = true;
                     break;
                 }
                 // Randomly pick one of the packets, but discard those that have been ACKed
                 case 2:
                 {
-                    bubble("booo");
-                    bool fwdPacket = false;
 
-                    while (LoRaPacketBuffer.size() > 0 && fwdPacket == false){
+                    while (LoRaPacketBuffer.size() > 0 && transmit == false){
                         packetPos = intuniform(0, LoRaPacketBuffer.size()-1);
 
                         LoRaAppPacket *randomDataPacket = &LoRaPacketBuffer.at(packetPos);
@@ -437,7 +436,8 @@ void LoRaNodeApp::sendDataPacket()
 
                         if ( !isACKed(dataPacket->getSource()) )
                         {
-                            fwdPacket= true;
+                            transmit= true;
+                            break;
                         }
                     }
                     break;
@@ -448,6 +448,7 @@ void LoRaNodeApp::sendDataPacket()
                     LoRaAppPacket *frontDataPacket = &LoRaPacketBuffer.front();
                     dataPacket = frontDataPacket->dup();
                     LoRaPacketBuffer.erase(LoRaPacketBuffer.begin());
+                    transmit= true;
                 }
             }
         }
