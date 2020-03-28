@@ -239,7 +239,7 @@ void LoRaGWRadio::endReception(cMessage *timer)
     }
     else {
         EV_INFO << "LoRaGWRadio Reception ended: ignoring " << (IRadioFrame *)radioFrame << " " << IRadioSignal::getSignalPartName(part) << " as " << reception << endl;
-        EV_INFO << "LoRaGWRadio Reception ended: ignoring because timer == receptionTimer: " << timer << " == " << receptionTimer << endl;
+        //EV_INFO << "LoRaGWRadio Reception ended: ignoring because timer == receptionTimer: " << timer << " == " << receptionTimer << endl;
         EV_INFO << "LoRaGWRadio Reception ended: ignoring because isReceiverMode(radioMode): " << isReceiverMode(radioMode) << endl;
         EV_INFO << "LoRaGWRadio Reception ended: ignoring because arrival->getEndTime() == simTime(): " << arrival->getEndTime() << " == " << simTime() << endl;
         EV_INFO << "LoRaGWRadio Reception ended: ignoring because iAmTransmiting: " << iAmTransmiting << endl;
