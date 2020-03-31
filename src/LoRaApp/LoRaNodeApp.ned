@@ -43,8 +43,9 @@ simple LoRaNodeApp
         int packetForwarding;
         int numberOfHops;
         bool requestACKfromApp = default(false);
+        bool requestADRfromApp = default(false);
         bool stopOnACK = default(true);
-        bool stopOnCAL = default(true);
+        bool stopOnADR = default(true);
         bool AppACKReceived = default(false);
         bool AppADRReceived = default(false);
         bool increaseSF = default(false);

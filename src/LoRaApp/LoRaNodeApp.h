@@ -105,13 +105,13 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
 
         //Application parameters
         bool requestACKfromApp;
+        bool requestADRfromApp;
         bool stopOnACK;
-        bool stopOnCAL;
+        bool stopOnADR;
         bool AppACKReceived;
         bool AppADRReceived;
         int firstACK;
         int firstADR;
-
 
         //Spreading factor
         bool increaseSF;

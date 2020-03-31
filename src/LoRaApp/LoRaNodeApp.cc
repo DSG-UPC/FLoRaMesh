@@ -65,12 +65,6 @@ void LoRaNodeApp::initialize(int stage)
         timeToFirstCalibrationPacket = par("timeToFirstCalibrationPacket");
         timeToNextCalibrationPacket = par("timeToNextCalibrationPacket");
 
-        selfCalibrationPacket = new cMessage("selfCalibrationPacket");
-        scheduleAt(simTime()+getSimulation()->getWarmupPeriod()+timeToFirstCalibrationPacket, selfCalibrationPacket);
-
-        selfDataPacket = new cMessage("selfDataPacket");
-        scheduleAt(simTime()+getSimulation()->getWarmupPeriod()+calibrationPeriod+timeToFirstDataPacket, selfDataPacket);
-
         LoRa_AppPacketSent = registerSignal("LoRa_AppPacketSent");
 
         //LoRa physical layer parameters
@@ -98,9 +92,11 @@ void LoRaNodeApp::initialize(int stage)
         //Node identifier
         nodeId = getContainingNode(this)->getIndex();
 
-        //Application acknowledgment
+        //Application acknowledgment and ADR
         requestACKfromApp = par("requestACKfromApp");
+        requestADRfromApp = par("requestADRfromApp");
         stopOnACK = par("stopOnACK");
+        stopOnADR = par("stopOnADR");
         AppACKReceived = false;
         AppADRReceived = false;
         firstACK = 0;
@@ -139,8 +135,17 @@ void LoRaNodeApp::initialize(int stage)
             WATCH_VECTOR(ACKedNodes);
 
             WATCH_VECTOR(LoRaPacketBuffer);
+
+            WATCH(requestADRfromApp);
         }
 
+        if (requestADRfromApp) {
+            selfCalibrationPacket = new cMessage("selfCalibrationPacket");
+            scheduleAt(simTime()+getSimulation()->getWarmupPeriod()+timeToFirstCalibrationPacket, selfCalibrationPacket);
+        }
+
+        selfDataPacket = new cMessage("selfDataPacket");
+        scheduleAt(simTime()+getSimulation()->getWarmupPeriod()+calibrationPeriod+timeToFirstDataPacket, selfDataPacket);
     }
 }
 
@@ -240,7 +245,7 @@ void LoRaNodeApp::handleMessage(cMessage *msg)
             if (simTime() >= getSimulation()->getWarmupPeriod() && simTime() < getSimulation()->getWarmupPeriod() + calibrationPeriod)
             {
                 // Check conditions for sending calibration packet: infinite packets to send or maximum packets not yet reached, and calibration not yet achieved
-                if ( (numberOfCalibrationPacketsToSend == 0 || sentCalibrationPackets < numberOfCalibrationPacketsToSend) && !(AppADRReceived)) {
+                if ((numberOfCalibrationPacketsToSend == 0 || sentCalibrationPackets < numberOfCalibrationPacketsToSend) && (!AppADRReceived || !stopOnADR)) {
                     sentCalibrationPackets++;
                     sentPackets++;
                     sendCalibrationPacket();
@@ -259,7 +264,7 @@ void LoRaNodeApp::handleMessage(cMessage *msg)
 
                 // Conditions for scheduling next selfCalibrationPacket: infinite packets to send or maximum packets not yet reached, and calibration period still going on
                 if ( (numberOfCalibrationPacketsToSend == 0 || sentCalibrationPackets < numberOfCalibrationPacketsToSend) &&
-                     (simTime() + timeToNextCalibrationPacket < getSimulation()->getWarmupPeriod() + calibrationPeriod) && !(AppADRReceived) )
+                     (simTime() + timeToNextCalibrationPacket < getSimulation()->getWarmupPeriod() + calibrationPeriod) && (!AppADRReceived || !stopOnADR) )
                 {
                     selfCalibrationPacket = new cMessage("selfCalibrationPacket");
                     scheduleAt(simTime() + timeToNextCalibrationPacket, selfCalibrationPacket);
@@ -445,10 +450,8 @@ void LoRaNodeApp::sendCalibrationPacket()
     LoRaAppPacket *calibrationPacket = new LoRaAppPacket("DataFrame");
     bool transmit = false;
 
-    int packetPos = 0;
-
     // Own packets are [generated and] sent first, then we may forward others'
-    if (numberOfCalibrationPacketsToSend == 0 || sentCalibrationPackets < numberOfCalibrationPacketsToSend) {
+    if ((numberOfCalibrationPacketsToSend == 0 || sentCalibrationPackets < numberOfCalibrationPacketsToSend) && (!AppADRReceived || !stopOnADR)) {
         transmit = true;
 
         calibrationPacket->setMsgType(TXCONFIG);
@@ -456,7 +459,6 @@ void LoRaNodeApp::sendCalibrationPacket()
         calibrationPacket->setSource(nodeId);
         calibrationPacket->setVia(nodeId);
         calibrationPacket->setDestination(-1);
-
         calibrationPacket->getOptions().setAppADRReq(true);
         calibrationPacket->setHops(0);
     }
