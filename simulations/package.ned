@@ -132,3 +132,21 @@ network LoRaMotoMesh
             gwRouter[i].ethg++ <--> Eth1G <--> loRaGW[i].ethg++;
         }
 }
+
+
+network LoRaMesh
+{
+    parameters:
+        int numberOfNodes = default(10);
+        int numberOfGateways = default(0);
+        int networkSizeX = default(1000);
+        int networkSizeY = default(1000);
+    submodules:
+        loRaNodes[numberOfNodes]: LoRaNode {
+            @display("p=83.664,233.856;is=n");
+        }
+        LoRaMedium: LoRaMedium {
+            @display("p=150,100");
+        }
+    connections:
+}

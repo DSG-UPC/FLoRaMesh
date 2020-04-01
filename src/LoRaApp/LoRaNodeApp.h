@@ -48,6 +48,7 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         void sendJoinRequest();
         void sendDataPacket();
         void sendCalibrationPacket();
+        void sendHelloPacket();
         void sendDownMgmtPacket();
 
         int numberOfDataPacketsToSend;
@@ -57,15 +58,23 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         int sentDataPackets;
         int sentCalibrationPackets;
         int sentForwardedPackets;
+        int sentHelloPackets;
         int receivedPackets;
         int receivedCalibrationPackets;
         int receivedDataPackets;
         int receivedForwardedPackets;
         int receivedACKs;
+        int receivedHellos;
         int receivedOwnACKs;
         int receivedADRs;
         int receivedOwnADRs;
         int lastSentMeasurement;
+
+        // HELLO packets
+        bool sendHelloPackets;
+        simtime_t timeToFirstHelloPacket;
+        simtime_t timeToNextHelloPacket;
+
 
         simtime_t calibrationPeriod;
         simtime_t timeToFirstDataPacket;
@@ -74,8 +83,10 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         simtime_t timeToNextCalibrationPacket;
 
         cMessage *configureLoRaParameters;
-        cMessage *selfDataPacket;
+
         cMessage *selfCalibrationPacket;
+        cMessage *selfDataPacket;
+        cMessage *selfHelloPacket;
 
         //history of sent packets;
         cOutVector sfVector;

@@ -47,6 +47,7 @@ void LoRaNodeApp::initialize(int stage)
         sentPackets = 0;
         sentCalibrationPackets = 0;
         sentDataPackets = 0;
+        sentHelloPackets = 0;
         sentForwardedPackets = 0;
         receivedPackets = 0;
         receivedCalibrationPackets = 0;
@@ -54,6 +55,7 @@ void LoRaNodeApp::initialize(int stage)
         receivedForwardedPackets = 0;
         receivedACKs = 0;
         receivedADRs = 0;
+        receivedHellos = 0;
         receivedOwnACKs = 0;
         receivedOwnADRs = 0;
 
@@ -66,6 +68,10 @@ void LoRaNodeApp::initialize(int stage)
         timeToNextCalibrationPacket = par("timeToNextCalibrationPacket");
 
         LoRa_AppPacketSent = registerSignal("LoRa_AppPacketSent");
+
+        // HELLO packets
+        sendHelloPackets = par("sendHelloPackets");
+        timeToFirstHelloPacket = par("timeToFirstHelloPacket");
 
         //LoRa physical layer parameters
         loRaTP = par("initialLoRaTP").doubleValue();
@@ -114,12 +120,14 @@ void LoRaNodeApp::initialize(int stage)
             WATCH(sentPackets);
             WATCH(sentCalibrationPackets);
             WATCH(sentDataPackets);
+            WATCH(sentHelloPackets);
             WATCH(sentForwardedPackets);
             WATCH(receivedPackets);
             WATCH(receivedACKs);
             WATCH(receivedOwnACKs);
             WATCH(receivedADRs);
             WATCH(receivedOwnADRs);
+            WATCH(receivedHellos);
             WATCH(AppADRReceived);
             WATCH(AppACKReceived);
             WATCH(firstACK);
@@ -137,6 +145,13 @@ void LoRaNodeApp::initialize(int stage)
             WATCH_VECTOR(LoRaPacketBuffer);
 
             WATCH(requestADRfromApp);
+
+            WATCH(timeToFirstHelloPacket);
+        }
+
+        if (sendHelloPackets) {
+            selfHelloPacket = new cMessage("selfHelloPacket");
+            scheduleAt(simTime()+getSimulation()->getWarmupPeriod()+timeToFirstHelloPacket, selfHelloPacket);
         }
 
         if (requestADRfromApp) {
@@ -271,6 +286,27 @@ void LoRaNodeApp::handleMessage(cMessage *msg)
                 }
             }
         }
+        // selfMessage for sending HELLO packets
+                else if (msg == selfHelloPacket) {
+
+                    sentHelloPackets++;
+                    sentPackets++;
+                    sendHelloPacket();
+
+                    // Minimum delay until next self-message, depending on the SF in use
+                    double time;
+                    if(loRaSF == 7) time = 7.808;
+                    if(loRaSF == 8) time = 13.9776;
+                    if(loRaSF == 9) time = 24.6784;
+                    if(loRaSF == 10) time = 49.3568;
+                    if(loRaSF == 11) time = 85.6064;
+                    if(loRaSF == 12) time = 171.2128;
+
+                    timeToNextHelloPacket = math::max(time, par("timeBetweenHelloPackets"));
+
+                    selfHelloPacket = new cMessage("selfHelloPacket");
+                    scheduleAt(simTime() + timeToNextHelloPacket, selfHelloPacket);
+                }
         delete msg;
     }
     else
@@ -431,6 +467,17 @@ void LoRaNodeApp::handleMessageFromLowerLayer(cMessage *msg)
                     //
                 // }
             break;
+        case HELLO :
+                    // Count the received HELLO
+                    receivedHellos++;
+
+                    // Add sender to the neighbours list
+                    if ( !isNeighbour(packet->getVia()) ) {
+                        bubble ("New neighbour node!");
+                        neighbourNodes.push_back(packet->getVia());
+                    }
+
+                    break;
         default:
             // bubble("Other type of packet received!");
             break;
@@ -613,6 +660,34 @@ void LoRaNodeApp::sendDataPacket()
         send(dataPacket, "appOut");
         emit(LoRa_AppPacketSent, loRaSF);
     }
+}
+
+void LoRaNodeApp::sendHelloPacket()
+{
+    LoRaAppPacket *helloPacket = new LoRaAppPacket("HelloFrame");
+    bubble("Sending HELLO packet!");
+
+    // Routing info
+    helloPacket->setMsgType(HELLO);
+    helloPacket->setDataInt(sentHelloPackets);
+    helloPacket->setSource(nodeId);
+    helloPacket->setVia(nodeId);
+    helloPacket->setDestination(-1);
+    helloPacket->setHops(0);
+
+    // LLoRa control info
+    LoRaMacControlInfo *cInfo = new LoRaMacControlInfo;
+    cInfo->setLoRaTP(loRaTP);
+    cInfo->setLoRaCF(loRaCF);
+    cInfo->setLoRaSF(loRaSF);
+    cInfo->setLoRaBW(loRaBW);
+    cInfo->setLoRaCR(loRaCR);
+    helloPacket->setControlInfo(cInfo);
+
+    sfVector.record(loRaSF);
+    tpVector.record(loRaTP);
+    send(helloPacket, "appOut");
+    emit(LoRa_AppPacketSent, loRaSF);
 }
 
 void LoRaNodeApp::increaseSFIfPossible()

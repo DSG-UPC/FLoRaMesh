@@ -24,6 +24,7 @@ enum AppPacketType
     DATA = 3;
     TXCONFIG = 4;
     ACK = 5;
+    HELLO = 6;
 }
 
 class LoRaOptions {
