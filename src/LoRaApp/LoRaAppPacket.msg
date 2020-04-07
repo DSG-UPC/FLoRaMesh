@@ -38,6 +38,14 @@ class LoRaOptions {
     bool AppADRReq = false;
 }
 
+packet routeNode {
+    int id;
+    double metric;
+    int lastSeqNo;
+    simtime_t routeTimeout;
+    int via;
+}
+
 packet LoRaAppPacket {
     int msgType @enum(AppPacketType);
     int dataInt;
@@ -46,4 +54,5 @@ packet LoRaAppPacket {
     int destination;
     int hops;
     int via;
+    routeNode routeNodes[];
 }

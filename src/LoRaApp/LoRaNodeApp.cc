@@ -69,6 +69,10 @@ void LoRaNodeApp::initialize(int stage)
 
         LoRa_AppPacketSent = registerSignal("LoRa_AppPacketSent");
 
+        // Routing settings
+        routingMetric = par("routingMetric");
+        routeTimeout = par("routeTimeout");
+
         // HELLO packets
         sendHelloPackets = par("sendHelloPackets");
         timeToFirstHelloPacket = par("timeToFirstHelloPacket");
@@ -83,6 +87,7 @@ void LoRaNodeApp::initialize(int stage)
         evaluateADRinNode = par("evaluateADRinNode");
         sfVector.setName("SF Vector");
         tpVector.setName("TP Vector");
+        routingTableSizeVector.setName("Routing table size Vector");
 
         //Current network settings
         numberOfNodes = par("numberOfNodes");
@@ -92,6 +97,8 @@ void LoRaNodeApp::initialize(int stage)
         numberOfHops = par("numberOfHops");
 
         neighbourNodes = {};
+        knownNodes = {};
+        routingTable = {};
         LoRaPacketBuffer = {};
         ACKedNodes = {};
 
@@ -142,7 +149,10 @@ void LoRaNodeApp::initialize(int stage)
             WATCH_VECTOR(neighbourNodes);
             WATCH_VECTOR(ACKedNodes);
 
+            WATCH_VECTOR(routingTable);
             WATCH_VECTOR(LoRaPacketBuffer);
+
+            WATCH_VECTOR(knownNodes);
 
             WATCH(requestADRfromApp);
 
@@ -161,6 +171,9 @@ void LoRaNodeApp::initialize(int stage)
 
         selfDataPacket = new cMessage("selfDataPacket");
         scheduleAt(simTime()+getSimulation()->getWarmupPeriod()+calibrationPeriod+timeToFirstDataPacket, selfDataPacket);
+
+        selfSanitizeRoutingTable = new cMessage("selfSanitizeRoutingTable");
+        scheduleAt(simTime()+getSimulation()->getWarmupPeriod()+routeTimeout/10, selfSanitizeRoutingTable);
     }
 }
 
@@ -306,6 +319,15 @@ void LoRaNodeApp::handleMessage(cMessage *msg)
 
                     selfHelloPacket = new cMessage("selfHelloPacket");
                     scheduleAt(simTime() + timeToNextHelloPacket, selfHelloPacket);
+                }
+        // selfMessage for refreshing routing table
+                else if (msg == selfSanitizeRoutingTable) {
+
+                    sanitizeRoutingTable();
+                    routingTableSizeVector.record(routingTable.size());
+
+                    selfSanitizeRoutingTable = new cMessage("selfSanitizeRoutingTable");
+                    scheduleAt(simTime() + routeTimeout/10, selfSanitizeRoutingTable);
                 }
         delete msg;
     }
@@ -468,16 +490,10 @@ void LoRaNodeApp::handleMessageFromLowerLayer(cMessage *msg)
                 // }
             break;
         case HELLO :
-                    // Count the received HELLO
-                    receivedHellos++;
-
-                    // Add sender to the neighbours list
-                    if ( !isNeighbour(packet->getVia()) ) {
-                        bubble ("New neighbour node!");
-                        neighbourNodes.push_back(packet->getVia());
-                    }
-
-                    break;
+            // Count the received HELLO
+            receivedHellos++;
+            processHelloPacket(packet);
+            break;
         default:
             // bubble("Other type of packet received!");
             break;
@@ -490,6 +506,154 @@ bool LoRaNodeApp::handleOperationStage(LifecycleOperation *operation, int stage,
 
     throw cRuntimeError("Unsupported lifecycle operation '%s'", operation->getClassName());
     return true;
+}
+
+void LoRaNodeApp::processHelloPacket(LoRaAppPacket *msg)
+{
+    switch(routingMetric)
+    {
+        case 0:
+        {
+            // Add new neighbour to the routing table
+            if (!isRoutableNode(msg->getSource()))
+            {
+                routeNode newNode;
+
+                newNode.setId(msg->getSource());
+                newNode.setMetric(1);
+                newNode.setLastSeqNo(msg->getDataInt());
+                newNode.setRouteTimeout(simTime()+routeTimeout);
+                newNode.setVia(nodeId);
+
+                routingTable.push_back(newNode);
+                knownNodes.push_back(msg->getSource());
+            }
+            // Update known neighbour already in the routing table
+            else
+            {
+                int i = getPositionInRoutingTable(msg->getSource());
+
+                routingTable[i].setMetric(1);
+                routingTable[i].setLastSeqNo(msg->getDataInt());
+                routingTable[i].setRouteTimeout(simTime()+routeTimeout);
+                routingTable[i].setVia(nodeId);
+            }
+
+            // Process received routing table
+            for (unsigned int i = 0; i < msg->getRouteNodesArraySize(); i++)
+            {
+                routeNode newRoute = msg->getRouteNodes(i);
+
+                // Ignore remote routes to this very node
+                if (newRoute.getId() != nodeId)
+                {
+                    // Add new routable node to the routing table
+                    if (!isRoutableNode(newRoute.getId()))
+                    {
+                        newRoute.setMetric(newRoute.getMetric()+1);
+                        newRoute.setLastSeqNo(newRoute.getLastSeqNo());
+                        newRoute.setRouteTimeout(simTime()+routeTimeout);
+                        newRoute.setVia(msg->getSource());
+
+                        routingTable.push_back(newRoute);
+                        knownNodes.push_back(newRoute.getId());
+                    }
+                    // Or update an already routable node...
+                    else
+                    {
+                        bool updateRoute = false;
+                        int j = getPositionInRoutingTable(newRoute.getId());
+                        // ...if a better metric is provided
+                        if (newRoute.getMetric()+1 < routingTable[j].getMetric())
+                        {
+                            updateRoute = true;
+                        }
+                        // ...or if the same metric, but [significantly] fresher
+                        else if (newRoute.getMetric()+1 == routingTable[j].getMetric() &&
+                                 newRoute.getRouteTimeout() > routingTable[j].getRouteTimeout() + routeTimeout/4)
+                        {
+                            updateRoute = true;
+                        }
+
+                        if (updateRoute)
+                        {
+                            routingTable[j].setMetric(newRoute.getMetric()+1);
+                            routingTable[j].setLastSeqNo(newRoute.getLastSeqNo());
+                            routingTable[j].setRouteTimeout(simTime()+routeTimeout);
+                            routingTable[j].setVia(msg->getSource());
+                        }
+                    }
+                }
+            }
+            break;
+        }
+        // RSSI-aware
+        case 1:
+        {
+            // ToDo
+            bubble("Routing metric not implemented!");
+            break;
+        }
+        // Unknown
+        default:
+        {
+            // ToDo
+            bubble("Routing metric not known!");
+            break;
+        }
+    }
+    routingTableSizeVector.record(routingTable.size());
+}
+
+void LoRaNodeApp::sanitizeRoutingTable()
+{
+    bool delRoute = true;
+
+    // Remove timed out routes
+    do {
+        delRoute = false;
+
+        for (unsigned int i=0; i<routingTable.size(); i++)
+        {
+            if (routingTable[i].getRouteTimeout() < simTime())
+            {
+                bubble("Removing timed out route!");
+                routingTable.erase(routingTable.begin()+i);
+                delRoute = true;
+                break;
+            }
+       }
+    }
+    while( delRoute );
+
+    // Remove unreachable routes
+    do {
+        delRoute = false;
+
+        for (unsigned int i=0; i<routingTable.size(); i++)
+        {
+            bool reachable = false;
+
+            for (unsigned int j=0; j<routingTable.size(); j++) {
+                if (routingTable[i].getVia() == nodeId || routingTable[i].getVia() == routingTable[j].getId())
+                {
+                    reachable = true;
+                        break;
+                }
+            }
+
+            if (!reachable)
+            {
+                bubble("Removing unreachable route!");
+                routingTable.erase(routingTable.begin()+i);
+                delRoute = true;
+                break;
+            }
+       }
+    }
+    while( delRoute );
+
+
 }
 
 void LoRaNodeApp::sendCalibrationPacket()
@@ -537,6 +701,7 @@ void LoRaNodeApp::sendCalibrationPacket()
         emit(LoRa_AppPacketSent, loRaSF);
     }
 }
+
 
 void LoRaNodeApp::sendDataPacket()
 {
@@ -675,7 +840,12 @@ void LoRaNodeApp::sendHelloPacket()
     helloPacket->setDestination(-1);
     helloPacket->setHops(0);
 
-    // LLoRa control info
+    helloPacket->setRouteNodesArraySize(routingTable.size());
+    for (unsigned int i=0; i< routingTable.size(); i++){
+        helloPacket->setRouteNodes(i, routingTable[i]);
+    }
+
+    // LoRa control info
     LoRaMacControlInfo *cInfo = new LoRaMacControlInfo;
     cInfo->setLoRaTP(loRaTP);
     cInfo->setLoRaCF(loRaCF);
@@ -690,6 +860,18 @@ void LoRaNodeApp::sendHelloPacket()
     emit(LoRa_AppPacketSent, loRaSF);
 }
 
+int LoRaNodeApp::getPositionInRoutingTable(int knownNodeId)
+{
+    for (unsigned int i = 0; i < routingTable.size(); i++)
+    {
+        if (routingTable[i].getId() == knownNodeId) {
+            return i;
+        }
+    }
+
+    return -1;
+}
+
 void LoRaNodeApp::increaseSFIfPossible()
 {
     if(loRaSF < 12) {
@@ -700,10 +882,20 @@ void LoRaNodeApp::increaseSFIfPossible()
     }
 }
 
+bool LoRaNodeApp::isRoutableNode(int knownNodeId)
+{
+    for (std::vector<routeNode>::iterator knptr = routingTable.begin(); knptr < routingTable.end(); knptr++) {
+        if ( knownNodeId == knptr->getId() ) {
+            return true;
+        }
+    }
+    return false;
+}
+
 bool LoRaNodeApp::isNeighbour(int neighbourId)
 {
-    for (std::vector<int>::iterator nbptr = neighbourNodes.begin(); nbptr < neighbourNodes.end(); nbptr++) {
-        if ( neighbourId == *nbptr ) {
+    for (std::vector<routeNode>::iterator knptr = routingTable.begin(); knptr < routingTable.end(); knptr++) {
+        if ( neighbourId == knptr->getId() && neighbourId == knptr->getVia() ) {
             return true;
         }
     }
@@ -719,6 +911,16 @@ bool LoRaNodeApp::isACKed(int nodeId)
     }
     return false;
 }
+
+void LoRaNodeApp::routingTableToString(char* outStr)
+{
+    for(unsigned int i = 0; i< routingTable.size(); i++)
+    {
+        char text[50];
+        sprintf(text, "%d", routingTable[i].getId());
+    }
+}
+
 
 } //end namespace inet
 

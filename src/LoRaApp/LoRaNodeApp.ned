@@ -51,10 +51,15 @@ simple LoRaNodeApp
         bool increaseSF = default(false);
         int packetsPerSF = default(1);
         int packetsInSF = default(0);
-        
+
+        int routingMetric = default(0);
+
+        volatile double routeTimeout @unit(s) = default(3600s);
+
         bool sendHelloPackets = default(true);
         volatile double timeToFirstHelloPacket @unit(s) = default(300s);
         volatile double timeBetweenHelloPackets @unit(s) = default(300s);
+
     gates:
         output appOut @labels(LoRaAppPacket/down);
         input appIn @labels(LoRaAppPacket/up);

@@ -32,6 +32,16 @@ namespace inet {
 /**
  * TODO - Generated class
  */
+
+struct routableNode
+{
+    int id;
+    double metric;
+    int lastSeqNo;
+    simtime_t routeTimeout;
+    int via;
+};
+
 class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
 {
     protected:
@@ -40,16 +50,21 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         virtual int numInitStages() const override { return NUM_INIT_STAGES; }
         virtual void handleMessage(cMessage *msg) override;
         virtual bool handleOperationStage(LifecycleOperation *operation, int stage, IDoneCallback *doneCallback) override;
+        virtual int getPositionInRoutingTable(int knownNodeId);
+        virtual bool isRoutableNode(int knownNodeId);
         virtual bool isNeighbour(int neighbourId);
         virtual bool isACKed(int nodeId);
 
         void handleMessageFromLowerLayer(cMessage *msg);
         std::pair<double,double> generateUniformCircleCoordinates(double radius, double gatewayX, double gatewayY);
+        void processHelloPacket(LoRaAppPacket *msg);
+        void sanitizeRoutingTable();
         void sendJoinRequest();
         void sendDataPacket();
         void sendCalibrationPacket();
         void sendHelloPacket();
         void sendDownMgmtPacket();
+        void routingTableToString(char* outStr);
 
         int numberOfDataPacketsToSend;
         int numberOfCalibrationPacketsToSend;
@@ -70,6 +85,15 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         int receivedOwnADRs;
         int lastSentMeasurement;
 
+        // Routing
+        std::vector<routeNode> routingTable;
+        cOutVector routingTableSizeVector;
+
+        // Routing settings
+        int routingMetric;
+
+        simtime_t routeTimeout;
+
         // HELLO packets
         bool sendHelloPackets;
         simtime_t timeToFirstHelloPacket;
@@ -87,6 +111,7 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         cMessage *selfCalibrationPacket;
         cMessage *selfDataPacket;
         cMessage *selfHelloPacket;
+        cMessage *selfSanitizeRoutingTable;
 
         //history of sent packets;
         cOutVector sfVector;
@@ -111,6 +136,7 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         int nodeId;
 
         std::vector<int> neighbourNodes;
+        std::vector<int> knownNodes;
         std::vector<int> ACKedNodes;
         std::vector<LoRaAppPacket> LoRaPacketBuffer;
 
