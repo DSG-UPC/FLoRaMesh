@@ -44,6 +44,7 @@ simple LoRaNodeApp
         bool increaseSF = default(false);
         int packetsPerSF = default(1);
         int packetsInSF = default(0);
+        int payloadSize @unit(B) = default(0); //bytes
     gates:
         output appOut @labels(LoRaAppPacket/down);
         input appIn @labels(LoRaAppPacket/up);

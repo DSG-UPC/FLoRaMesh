@@ -98,6 +98,9 @@ void LoRaNodeApp::initialize(int stage)
         packetsPerSF = par("packetsPerSF");
         packetsInSF = 0;
 
+        //Payload
+        payloadSize = par("payloadSize");
+
         //WATCHES only for GUI
         if (getEnvir()->isGUI()) {
             WATCH(sentPackets);
@@ -372,8 +375,8 @@ void LoRaNodeApp::sendDataPacket()
         // do dataPacket->setDestination(intuniform(0, numberOfNodes-1));
         // while (dataPacket->getDestination() == nodeId);
         dataPacket->setDestination(-1);
-
         dataPacket->getOptions().setAppACKReq(requestACKfromApp);
+        dataPacket->setByteLength(payloadSize);
 
         if ( isNeighbour(dataPacket->getDestination())){
             dataPacket->setHops(0);

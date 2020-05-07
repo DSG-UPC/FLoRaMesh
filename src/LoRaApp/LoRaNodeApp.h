@@ -104,6 +104,9 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         int packetsPerSF;
         int packetsInSF;
 
+        //Payload
+        int payloadSize;
+
     public:
         LoRaNodeApp() {}
         simsignal_t LoRa_AppPacketSent;
