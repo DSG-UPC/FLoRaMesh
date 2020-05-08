@@ -118,6 +118,8 @@ void LoRaNodeApp::initialize(int stage)
             WATCH_VECTOR(ACKedNodes);
 
             WATCH_VECTOR(LoRaPacketBuffer);
+
+            WATCH(payloadSize);
         }
 
     }
@@ -156,6 +158,7 @@ void LoRaNodeApp::finish()
     recordScalar("AppACKReceived", AppACKReceived);
     recordScalar("firstACK", firstACK);
     recordScalar("firstACKSF", firstACKSF);
+    recordScalar("payloadSize", payloadSize);
 
     for (std::vector<LoRaAppPacket>::iterator lbptr = LoRaPacketBuffer.begin(); lbptr < LoRaPacketBuffer.end(); lbptr++) {
         LoRaPacketBuffer.erase(lbptr);

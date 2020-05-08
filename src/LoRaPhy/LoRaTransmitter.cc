@@ -73,6 +73,11 @@ const ITransmission *LoRaTransmitter::createTransmission(const IRadio *transmitt
     int payloadBytes = 0;
     if(iAmGateway) payloadBytes = 15;
     else payloadBytes = 20;
+
+    //use the actual payload size
+    if (frame->getByteLength() >= 0 )
+        payloadBytes = frame->getByteLength();
+
     int payloadSymbNb = 8 + math::max(ceil((8*payloadBytes - 4*frame->getLoRaSF() + 28 + 16 - 20*0)/(4*(frame->getLoRaSF()-2*0)))*(frame->getLoRaCR() + 4), 0);
 
     simtime_t Theader = 0.5 * (8+payloadSymbNb) * Tsym / 1000;
