@@ -202,11 +202,11 @@ void LoRaNodeApp::handleMessage(cMessage *msg)
                     if(loRaSF == 12) time = 171.2128;
 
                     do {
-                        //(ToDo) Warning: too small a par("timeToNextPacket") might cause a lock here
-                        //(ToDo) Note: simple workaround
+                        // Warning: too small a par("timeToNextPacket") might cause a lock here,
+                        // so add this workaround:
                         // timeToNextPacket = par("timeToNextPacket");
                            timeToNextPacket = math::max(time, par("timeToNextPacket"));
-                    } while(timeToNextPacket <= time);
+                    } while(timeToNextPacket < time);
 
                     selfDataPacket = new cMessage("selfDataPacket");
                     scheduleAt(simTime() + timeToNextPacket, selfDataPacket);
