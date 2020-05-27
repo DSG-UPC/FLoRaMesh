@@ -18,11 +18,11 @@ package loranetwork.LoRa;
 import inet.linklayer.contract.IWirelessNic;
 import inet.physicallayer.contract.packetlevel.IRadio;
 
-module LoRaNic like IWirelessNic 
+module LoRaNic like IWirelessNic
 {
     parameters:
         string interfaceTableModule;
-        @display("i=block/ifcard");
+        @display("i=block/ifcard;bgb=300,400");
         *.interfaceTableModule = default(absPath(interfaceTableModule));
     gates:
         input upperLayerIn;
@@ -33,14 +33,14 @@ module LoRaNic like IWirelessNic
     submodules:
         mac: LoRaMac {
             parameters:
-                @display("p=100,150");
+                @display("p=150,150");
             gates:
                 upperMgmtIn;
-                upperMgmtOut;    
+                upperMgmtOut;
         }
         radio: LoRaRadio {
             parameters:
-                @display("p=100,250");
+                @display("p=150,300");
         }
     connections:
         upperLayerIn --> mac.upperLayerIn;
@@ -48,7 +48,7 @@ module LoRaNic like IWirelessNic
         mac.upperLayerOut --> { @display("m=n"); } --> upperLayerOut;
         radioIn --> { @display("m=s"); } --> radio.radioIn;
         radio.upperLayerOut --> mac.lowerLayerIn;
-        
+
         upperMgmtIn --> mac.upperMgmtIn;
         mac.upperMgmtOut --> upperMgmtOut;
 }

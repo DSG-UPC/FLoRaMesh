@@ -30,19 +30,19 @@ module LoRaNode
         double gatewayY = default(320.0);
         @networkNode();
         *.interfaceTableModule = default(absPath(".interfaceTable"));
-        @display("bgb=297,313;i=device/accesspoint;is=vs");
+        @display("bgb=300,400;i=device/accesspoint;is=vs");
     submodules:
         interfaceTable: InterfaceTable {
-            @display("p=30,26");
+            @display("p=50,50");
         }
         mobility: StationaryMobility {
-            @display("p=24,88");
+            @display("p=50,120");
         }
         LoRaNic: LoRaNic {
-            @display("p=137,239");
+            @display("p=150,300");
         }
         LoRaNodeApp: LoRaNodeApp {
-            @display("p=137,32");
+            @display("p=150,50");
         }
     connections allowunconnected:
 
