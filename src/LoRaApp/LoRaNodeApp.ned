@@ -23,7 +23,6 @@ simple LoRaNodeApp
     parameters:
         @signal[LoRa_AppPacketSent](type=long); // optional
         @statistic[LoRa_AppPacketSent](source=LoRa_AppPacketSent; record=count);
-        int numberOfPacketsToSend = default(1);
         int numberOfPacketsToForward = default(0);
         volatile double timeToFirstPacket @unit(s) = default(10s);
         volatile double timeToNextPacket @unit(s) = default(10s);
@@ -37,13 +36,15 @@ simple LoRaNodeApp
         bool evaluateADRinNode = default(false);
         int numberOfNodes;
         int packetForwarding;
-        int numberOfHops;
+        int maxHops = default(1);
         bool requestACKfromApp = default(false);
         bool stopOnACK = default(true);
         bool AppACKReceived = default(false);
         bool increaseSF = default(false);
         int packetsPerSF = default(1);
         int packetsInSF = default(0);
+        int numberOfDestinationsPerNode = default(1);
+        int numberOfPacketsPerDestination = default(1);
     gates:
         output appOut @labels(LoRaAppPacket/down);
         input appIn @labels(LoRaAppPacket/up);

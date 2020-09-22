@@ -42,15 +42,21 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         virtual bool handleOperationStage(LifecycleOperation *operation, int stage, IDoneCallback *doneCallback) override;
         virtual bool isNeighbour(int neighbourId);
         virtual bool isACKed(int nodeId);
+        virtual bool isPacketForwarded(cMessage *msg);
+        virtual bool isPacketToBeForwarded(cMessage *msg);
 
         void handleMessageFromLowerLayer(cMessage *msg);
         std::pair<double,double> generateUniformCircleCoordinates(double radius, double gatewayX, double gatewayY);
         void sendJoinRequest();
         void sendDataPacket();
         void sendDownMgmtPacket();
+        void generateDataPackets();
 
-        int numberOfPacketsToSend;
+        int numberOfDestinationsPerNode;
+        int numberOfPacketsPerDestination;
+
         int numberOfPacketsToForward;
+
         int sentPackets;
         int forwardedPackets;
         int receivedPackets;
@@ -82,14 +88,16 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
 
         //Routing variables
         int packetForwarding;
-        int numberOfHops;
+        int maxHops;
 
         //Node info
         int nodeId;
 
         std::vector<int> neighbourNodes;
         std::vector<int> ACKedNodes;
-        std::vector<LoRaAppPacket> LoRaPacketBuffer;
+        std::vector<LoRaAppPacket> LoRaPacketsToSend;
+        std::vector<LoRaAppPacket> LoRaPacketsToForward;
+        std::vector<LoRaAppPacket> LoRaPacketsForwarded;
 
         //Application parameters
         bool requestACKfromApp;

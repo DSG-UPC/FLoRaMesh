@@ -43,6 +43,6 @@ packet LoRaAppPacket {
     LoRaOptions options;
     int source;
     int destination;
-    int hops;
+    int ttl;
     int via;
 }
