@@ -72,6 +72,8 @@ void LoRaNodeApp::initialize(int stage)
         loRaBW = inet::units::values::Hz(par("initialLoRaBW").doubleValue());
         loRaCR = par("initialLoRaCR");
         loRaUseHeader = par("initialUseHeader");
+        loRaCAD = par("initialLoRaCAD");
+        loRaCADatt = par("initialLoRaCADatt").doubleValue();
         evaluateADRinNode = par("evaluateADRinNode");
         sfVector.setName("SF Vector");
         tpVector.setName("TP Vector");

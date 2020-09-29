@@ -122,6 +122,8 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         units::values::Hz loRaBW;
         int loRaCR;
         bool loRaUseHeader;
+        bool loRaCAD;
+        double loRaCADatt;
 };
 
 }
