@@ -437,7 +437,7 @@ void LoRaNodeApp::generateDataPackets() {
             dataPacket->setDataInt(k);
             dataPacket->setSource(nodeId);
             dataPacket->setVia(nodeId);
-            dataPacket->setDestination(j);
+            dataPacket->setDestination(destinations[j]);
             dataPacket->getOptions().setAppACKReq(requestACKfromApp);
 
             switch (packetForwarding) {
