@@ -46,6 +46,12 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         virtual bool isPacketToBeForwarded(cMessage *msg);
 
         void handleMessageFromLowerLayer(cMessage *msg);
+        void manageReceivedPacketForMe(cMessage *msg);
+        void manageReceivedAckPacketForMe(cMessage *msg);
+        void manageReceivedDataPacketForMe(cMessage *msg);
+        void manageReceivedPacketToForward(cMessage *msg);
+        void manageReceivedAckPacketToForward(cMessage *msg);
+        void manageReceivedDataPacketToForward(cMessage *msg);
         std::pair<double,double> generateUniformCircleCoordinates(double radius, double gatewayX, double gatewayY);
         void sendJoinRequest();
         void sendDataPacket();
@@ -58,11 +64,30 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         int numberOfPacketsToForward;
 
         int sentPackets;
-        int forwardedPackets;
+        int sentDataPackets;
+        int sentAckPackets;
         int receivedPackets;
-        int receivedACKs;
-        int receivedOwnACKs;
+        int receivedPacketsForMe;
+        int receivedPacketsFromMe;
+        int receivedPacketsToForward;
+        int receivedDataPackets;
+        int receivedDataPacketsForMe;
+        int receivedDataPacketsFromMe;
+        int receivedDataPacketsToForward;
+        int receivedDataPacketsToForwardCorrect;
+        int receivedDataPacketsToForwardExpired;
+        int receivedDataPacketsToForwardUnique;
+        int receivedAckPackets;
+        int receivedAckPacketsForMe;
+        int receivedAckPacketsFromMe;
+        int receivedAckPacketsToForward;
+        int receivedAckPacketsToForwardCorrect;
+        int receivedAckPacketsToForwardExpired;
+        int receivedAckPacketsToForwardUnique;
         int receivedADRCommands;
+        int forwardedPackets;
+        int forwardedDataPackets;
+        int forwardedAckPackets;
         int lastSentMeasurement;
         simtime_t timeToFirstPacket;
         simtime_t timeToNextPacket;

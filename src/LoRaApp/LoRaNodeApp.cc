@@ -51,11 +51,30 @@ void LoRaNodeApp::initialize(int stage)
         scheduleAt(simTime()+timeToFirstPacket, selfDataPacket);
 
         sentPackets = 0;
-        forwardedPackets = 0;
+        sentDataPackets = 0;
+        sentAckPackets = 0;
         receivedPackets = 0;
-        receivedACKs = 0;
-        receivedOwnACKs = 0;
+        receivedPacketsForMe = 0;
+        receivedPacketsFromMe = 0;
+        receivedPacketsToForward = 0;
+        receivedDataPackets = 0;
+        receivedDataPacketsForMe = 0;
+        receivedDataPacketsFromMe = 0;
+        receivedDataPacketsToForward = 0;
+        receivedDataPacketsToForwardCorrect = 0;
+        receivedDataPacketsToForwardExpired = 0;
+        receivedDataPacketsToForwardUnique = 0;
+        receivedAckPackets = 0;
+        receivedAckPacketsForMe = 0;
+        receivedAckPacketsFromMe = 0;
+        receivedAckPacketsToForward = 0;
+        receivedAckPacketsToForwardCorrect = 0;
+        receivedAckPacketsToForwardExpired = 0;
+        receivedAckPacketsToForwardUnique = 0;
         receivedADRCommands = 0;
+        forwardedPackets = 0;
+        forwardedDataPackets = 0;
+        forwardedAckPackets = 0;
 
         numberOfDestinationsPerNode = par("numberOfDestinationsPerNode");
         numberOfPacketsPerDestination = par("numberOfPacketsPerDestination");
@@ -109,10 +128,31 @@ void LoRaNodeApp::initialize(int stage)
         //WATCHES only for GUI
         if (getEnvir()->isGUI()) {
             WATCH(sentPackets);
-            WATCH(forwardedPackets);
+            WATCH(sentDataPackets);
+            WATCH(sentAckPackets);
             WATCH(receivedPackets);
-            WATCH(receivedACKs);
-            WATCH(receivedOwnACKs);
+            WATCH(receivedPacketsForMe);
+            WATCH(receivedPacketsFromMe);
+            WATCH(receivedPacketsToForward);
+            WATCH(receivedDataPackets);
+            WATCH(receivedDataPacketsForMe);
+            WATCH(receivedDataPacketsFromMe);
+            WATCH(receivedDataPacketsToForward);
+            WATCH(receivedDataPacketsToForwardCorrect);
+            WATCH(receivedDataPacketsToForwardExpired);
+            WATCH(receivedDataPacketsToForwardUnique);
+            WATCH(receivedAckPackets);
+            WATCH(receivedAckPacketsForMe);
+            WATCH(receivedAckPacketsFromMe);
+            WATCH(receivedAckPacketsToForward);
+            WATCH(receivedAckPacketsToForwardCorrect);
+            WATCH(receivedAckPacketsToForwardExpired);
+            WATCH(receivedAckPacketsToForwardUnique);
+            WATCH(receivedADRCommands);
+            WATCH(forwardedPackets);
+            WATCH(forwardedDataPackets);
+            WATCH(forwardedAckPackets);
+
             WATCH(AppACKReceived);
             WATCH(firstACK);
 
@@ -155,11 +195,33 @@ void LoRaNodeApp::finish()
     recordScalar("positionY", coord.y);
     recordScalar("finalTP", loRaTP);
     recordScalar("finalSF", loRaSF);
+
     recordScalar("sentPackets", sentPackets);
-    recordScalar("forwardedPackets", forwardedPackets);
+    recordScalar("entDataPackets", sentDataPackets);
+    recordScalar("sentAckPackets", sentAckPackets);
     recordScalar("receivedPackets", receivedPackets);
-    recordScalar("receivedACKs", receivedACKs);
-    recordScalar("receivedOwnACKs", receivedOwnACKs);
+    recordScalar("receivedPacketsForMe", receivedPacketsForMe);
+    recordScalar("receivedPacketsFromMe", receivedPacketsFromMe);
+    recordScalar("receivedPacketsToForward", receivedPacketsToForward);
+    recordScalar("receivedDataPackets", receivedDataPackets);
+    recordScalar("receivedDataPacketsForMe", receivedDataPacketsForMe);
+    recordScalar("receivedDataPacketsFromMe", receivedDataPacketsFromMe);
+    recordScalar("receivedDataPacketsToForward", receivedDataPacketsToForward);
+    recordScalar("receivedDataPacketsToForwardCorrect", receivedDataPacketsToForwardCorrect);
+    recordScalar("receivedDataPacketsToForwardExpired", receivedDataPacketsToForwardExpired);
+    recordScalar("receivedDataPacketsToForwardUnique", receivedDataPacketsToForwardUnique);
+    recordScalar("receivedAckPacketsToForward", receivedAckPacketsToForward);
+    recordScalar("receivedAckPacketsToForwardCorrect", receivedAckPacketsToForwardCorrect);
+    recordScalar("receivedAckPacketsToForwardExpired", receivedAckPacketsToForwardExpired);
+    recordScalar("receivedAckPacketsToForwardUnique", receivedAckPacketsToForwardUnique);
+    recordScalar("receivedAckPackets", receivedAckPackets);
+    recordScalar("receivedAckPacketsForMe", receivedAckPacketsForMe);
+    recordScalar("receivedAckPacketsFromMe", receivedAckPacketsFromMe);
+    recordScalar("receivedADRCommands", receivedADRCommands);
+    recordScalar("forwardedPackets", forwardedPackets);
+    recordScalar("forwardedDataPackets", forwardedDataPackets);
+    recordScalar("forwardedAckPackets", forwardedAckPackets);
+
     recordScalar("receivedADRCommands", receivedADRCommands);
     recordScalar("AppACKReceived", AppACKReceived);
     recordScalar("firstACK", firstACK);
@@ -239,98 +301,158 @@ void LoRaNodeApp::handleMessage(cMessage *msg)
 void LoRaNodeApp::handleMessageFromLowerLayer(cMessage *msg)
 {
     receivedPackets++;
+    LoRaAppPacket *packet = check_and_cast<LoRaAppPacket *>(msg);
+
+    // Check if the packet is for this node
+    if (packet->getDestination() == nodeId) {
+        manageReceivedPacketForMe(packet);
+    }
+    // Check if the packet is from this node
+    else if (packet->getSource() == nodeId) {
+        receivedDataPacketsFromMe++;
+        bubble("I received a LoRa packet originally sent by me!");
+        // ToDo delete packet
+    }
+    // Manage packet forwarding
+    else {
+        manageReceivedPacketToForward(packet);
+    }
+}
+
+void LoRaNodeApp::manageReceivedPacketToForward(cMessage *msg)
+{
+    receivedPacketsToForward++;
 
     LoRaAppPacket *packet = check_and_cast<LoRaAppPacket *>(msg);
 
-    switch(packetForwarding) {
-
-        // Dummy broadcast flooding. Packets for other nodes are broadcast once if their TTL is > 0
-        case 0:
-            // DATA and ACK packets are handled separately
-            switch (packet->getMsgType()) {
-                // DATA packets
-                case DATA:
-                    bubble("DATA packet received!");
-
-                    // Check if the packet is for the current node
-                    if (packet->getDestination() == nodeId) {
-                        bubble("I received a data packet for me!");
-                        // ToDo delete packet;
-                        // ToDo count this packet
-                    }
-                    // Packet for another node
-                    else {
-                        // Check if the packet is from another node to avoid loops of own packets
-                        if (packet->getSource() == nodeId) {
-                            bubble("I received a LoRa packet originally sent by me!");
-                            // ToDo delete packet
-                            // ToDo count this packet
-                        }
-                        // Packet from another node
-                        else {
-                            // Check for too old packets with TTL == 0
-                            if ( packet->getTtl() == 0 ) {
-                                bubble("This packet has reached TTL expiration!");
-                                // ToDo delete packet
-                                // ToDo count this packet
-                            }
-                            // Packet has not reached its maximum TTL
-                            else {
-                                // Check if the packet has already been forwarded
-                                if ( isPacketForwarded(packet) ) {
-                                    bubble("This packet has already been forwarded!");
-                                    // ToDo delete packet
-                                }
-                                // Cool, it can be forwarded!
-                                else {
-                                    if ( isPacketToBeForwarded(packet) ) {
-                                        bubble("This packet is already scheduled to be forwarded!");
-                                        // ToDo delete packet
-                                    }
-                                    else {
-                                        bubble("Saving packet to forward it later!");
-
-                                        // Duplicate the packet
-                                        LoRaAppPacket *dataPacket = new LoRaAppPacket("DataFrame");
-                                        dataPacket->setMsgType(packet->getMsgType());
-
-                                        dataPacket->setDataInt(packet->getDataInt());
-
-                                        dataPacket->setSource(packet->getSource());
-                                        dataPacket->setDestination(packet->getDestination());
-                                        dataPacket->setVia(nodeId);
-
-                                        dataPacket->getOptions().setAppACKReq(packet->getOptions().getAppACKReq());
-                                        dataPacket->getOptions().setADRACKReq(packet->getOptions().getADRACKReq());
-
-                                        dataPacket->setTtl(packet->getTtl() -1 );
-
-                                        LoRaPacketsToForward.push_back(*dataPacket);
-                                        // ToDo delete packet
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    break;
-
-                case ACK:
-                    break;
-
-                default:
-                    bubble("Packet of unknown type received!");
-                    // ToDo delete packet
-                    break;
-
-            }// Closes: "switch (packet->getMsgType())"
-
-        case 1:
+    switch (packet->getMsgType()) {
+        // DATA packet
+        case DATA:
+            manageReceivedDataPacketToForward(packet);
             break;
-
+        // ACK packet
+        case ACK:
+            manageReceivedAckPacketToForward(packet);
+            break;
+        // Other type
         default:
-           break;
+            break;
+      }
+}
 
-    }// Closes: "switch (forwarding)"
+void LoRaNodeApp::manageReceivedAckPacketToForward(cMessage *msg)
+{
+    receivedAckPackets++;
+    receivedAckPacketsToForward++;
+}
+
+void LoRaNodeApp::manageReceivedDataPacketToForward(cMessage *msg)
+{
+    receivedDataPackets++;
+    receivedDataPacketsToForward++;
+
+    LoRaAppPacket *packet = check_and_cast<LoRaAppPacket *>(msg);
+
+    // Check for too old packets with TTL == 0
+    if ( packet->getTtl() == 0 ) {
+        bubble("This packet has reached TTL expiration!");
+        receivedDataPacketsToForwardExpired++;
+        // ToDo delete packet
+    }
+    // Packet has not reached its maximum TTL
+    else {
+        receivedDataPacketsToForwardCorrect++;
+
+        switch(packetForwarding) {
+            // Forwarding disabled
+            case 0:
+                bubble("Discarding packet as forwarding is disabled");
+                // ToDo delete packet
+                break;
+            // Forwarding enabled
+            case 1:
+                // Check if the packet has already been forwarded
+                if ( isPacketForwarded(packet) ) {
+                    bubble("This packet has already been forwarded!");
+                    // ToDo delete packet
+                }
+                // Check if the packet is buffered to be forwarded
+                else if ( isPacketToBeForwarded(packet) ) {
+                    bubble("This packet is already scheduled to be forwarded!");
+                    // ToDo delete packet
+                }
+                else {
+
+                    bubble("Saving packet to forward it later!");
+                    receivedDataPacketsToForwardUnique++;
+
+                    // Duplicate the packet
+                    LoRaAppPacket *dataPacket = new LoRaAppPacket("DataFrame");
+                    dataPacket->setMsgType(packet->getMsgType());
+
+                    dataPacket->setDataInt(packet->getDataInt());
+
+                    dataPacket->setSource(packet->getSource());
+                    dataPacket->setDestination(packet->getDestination());
+                    dataPacket->setVia(nodeId);
+
+                    dataPacket->getOptions().setAppACKReq(packet->getOptions().getAppACKReq());
+                    dataPacket->getOptions().setADRACKReq(packet->getOptions().getADRACKReq());
+
+                    dataPacket->setTtl(packet->getTtl() -1 );
+
+                    LoRaPacketsToForward.push_back(*dataPacket);
+                    // ToDo delete packet
+                }
+                break;
+
+            default:
+                break;
+        }
+    }
+}
+
+void LoRaNodeApp::manageReceivedPacketForMe(cMessage *msg)
+{
+    receivedPacketsForMe++;
+
+    LoRaAppPacket *packet = check_and_cast<LoRaAppPacket *>(msg);
+
+    switch (packet->getMsgType()) {
+        // DATA packet
+        case DATA:
+            manageReceivedDataPacketForMe(packet);
+            break;
+        // ACK packet
+        case ACK:
+            manageReceivedAckPacketForMe(packet);
+            break;
+        // Other type
+        default:
+            break;
+    }
+}
+
+void LoRaNodeApp::manageReceivedDataPacketForMe(cMessage *msg)
+{
+    receivedDataPackets++;
+    receivedDataPacketsForMe++;
+
+    LoRaAppPacket *packet = check_and_cast<LoRaAppPacket *>(msg);
+
+    // Do something with the packet
+    // ToDo delete the packet
+}
+
+void LoRaNodeApp::manageReceivedAckPacketForMe(cMessage *msg)
+{
+    receivedAckPackets++;
+    receivedAckPacketsForMe++;
+
+    LoRaAppPacket *packet = check_and_cast<LoRaAppPacket *>(msg);
+
+    // Do something with the packet
+    // ToDo delete the packet
 }
 
 bool LoRaNodeApp::handleOperationStage(LifecycleOperation *operation, int stage, IDoneCallback *doneCallback)
@@ -408,7 +530,7 @@ void LoRaNodeApp::generateDataPackets() {
 
     std::vector<int> destinations = {};
 
-    while (destinations.size() < numberOfDestinationsPerNode) {
+    while (destinations.size() < numberOfDestinationsPerNode && numberOfNodes -1 - destinations.size() > 0 ) {
 
         int destination = intuniform(0,  numberOfNodes-1);
 
