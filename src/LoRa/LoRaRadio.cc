@@ -475,6 +475,19 @@ void LoRaRadio::endReception(cMessage *timer)
         auto isReceptionSuccessful = medium->getReceptionDecision(this, radioFrame->getListening(), transmission, part)->isReceptionSuccessful();
         EV_INFO << "Reception ended: " << (isReceptionSuccessful ? "successfully" : "unsuccessfully") << " for " << (IRadioFrame *)radioFrame << " " << IRadioSignal::getSignalPartName(part) << " as " << reception << endl;
         auto macFrame = medium->receivePacket(this, radioFrame);
+
+        auto rxinfo = reception->getCompleteStringRepresentation();
+        auto powerpos = rxinfo.find("power");
+        auto powerp = rxinfo.substr(powerpos);
+        auto powercpos = powerp.find(",");
+        auto powerneq = powerp.substr(8, powercpos);
+        auto power = powerneq.substr(0, powerneq.find(",")-2);
+
+        cMsgPar *powerpar = new cMsgPar("rssi");
+        powerpar->setDoubleValue(math::mW2dBm(atof(power.c_str())));
+
+        macFrame->addObject(powerpar);
+
         if(isReceptionSuccessful)
         {
             emit(LayeredProtocolBase::packetSentToUpperSignal, macFrame);
@@ -527,6 +540,9 @@ void LoRaRadio::captureReception(cMessage *timer)
 void LoRaRadio::sendUp(cPacket *macFrame)
 {
     auto indication = check_and_cast<const ReceptionIndication *>(macFrame->getControlInfo());
+    LoRaMacFrame *lmacFrame = check_and_cast<LoRaMacFrame *>(macFrame);
+    lmacFrame->setRSSI(macFrame->par("rssi"));
+
     emit(minSNIRSignal, indication->getMinSNIR());
     if (!std::isnan(indication->getPacketErrorRate()))
         emit(packetErrorRateSignal, indication->getPacketErrorRate());
@@ -535,7 +551,7 @@ void LoRaRadio::sendUp(cPacket *macFrame)
     if (!std::isnan(indication->getSymbolErrorRate()))
         emit(symbolErrorRateSignal, indication->getSymbolErrorRate());
     EV_INFO << "Sending up " << macFrame << endl;
-    send(macFrame, upperLayerOut);
+    send(lmacFrame, upperLayerOut);
 }
 
 cMessage *LoRaRadio::createReceptionTimer(RadioFrame *radioFrame) const
