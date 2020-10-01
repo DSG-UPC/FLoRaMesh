@@ -8,6 +8,7 @@
 #include "inet/common/queue/IPassiveQueue.h"
 #include "LoRaMacControlInfo_m.h"
 #include "LoRaMacFrame_m.h"
+#include "LoRaApp/LoRaAppPacket_m.h"
 
 #include "LoRaRadio.h"
 

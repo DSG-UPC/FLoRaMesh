@@ -94,8 +94,10 @@ void LoRaNodeApp::initialize(int stage)
         loRaCAD = par("initialLoRaCAD");
         loRaCADatt = par("initialLoRaCADatt").doubleValue();
         evaluateADRinNode = par("evaluateADRinNode");
-        sfVector.setName("SF Vector");
-        tpVector.setName("TP Vector");
+        txSfVector.setName("Tx SF Vector");
+        txTpVector.setName("Tx TP Vector");
+        rxRssiVector.setName("Rx RSSI Vector");
+        rxSfVector.setName("Rx SF Vector");
 
         //Current network settings
         numberOfNodes = par("numberOfNodes");
@@ -301,6 +303,7 @@ void LoRaNodeApp::handleMessage(cMessage *msg)
 void LoRaNodeApp::handleMessageFromLowerLayer(cMessage *msg)
 {
     receivedPackets++;
+
     LoRaAppPacket *packet = check_and_cast<LoRaAppPacket *>(msg);
 
     // Check if the packet is for this node
@@ -519,8 +522,8 @@ void LoRaNodeApp::sendDataPacket()
     dataPacket->setControlInfo(cInfo);
 
     if (transmit) {
-        sfVector.record(loRaSF);
-        tpVector.record(loRaTP);
+        txSfVector.record(loRaSF);
+        txTpVector.record(loRaTP);
         send(dataPacket, "appOut");
         emit(LoRa_AppPacketSent, loRaSF);
     }

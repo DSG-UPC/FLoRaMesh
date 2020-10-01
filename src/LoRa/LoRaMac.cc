@@ -384,8 +384,20 @@ LoRaMacFrame *LoRaMac::encapsulate(cPacket *msg)
 
 cPacket *LoRaMac::decapsulate(LoRaMacFrame *frame)
 {
-    cPacket *payload = frame->decapsulate();
+    LoRaAppPacket *payload = check_and_cast<LoRaAppPacket *>(frame->decapsulate());
 
+    LoRaOptions frameOptions;
+    frameOptions.setLoRaTP(frame->getLoRaTP());
+    frameOptions.setLoRaCF(frame->getLoRaCF());
+    frameOptions.setLoRaSF(frame->getLoRaSF());
+    frameOptions.setLoRaBW(frame->getLoRaBW());
+    frameOptions.setLoRaCR(frame->getLoRaCR());
+    frameOptions.setRSSI(frame->getRSSI());
+    frameOptions.setUseHeader(frame->getLoRaUseHeader());
+//    frameOptions.setADRACKReq();
+//    frameOptions.setAppACKReq();
+
+    payload->setOptions(frameOptions);
 
     delete frame;
     return payload;

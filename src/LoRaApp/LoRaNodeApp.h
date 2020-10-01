@@ -96,9 +96,12 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         cMessage *selfDataPacket;
 
         //history of sent packets;
-        cOutVector sfVector;
-        cOutVector tpVector;
+        cOutVector txSfVector;
+        cOutVector txTpVector;
 
+        // History of received packets
+        cOutVector rxRssiVector;
+        cOutVector rxSfVector;
 
         //variables to control ADR
         bool evaluateADRinNode;

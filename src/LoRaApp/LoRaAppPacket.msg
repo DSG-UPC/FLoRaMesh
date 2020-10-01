@@ -17,6 +17,14 @@
 // TODO generated message class
 //
 
+cplusplus {{
+#include "../misc/DevAddr.h"
+#include <inet/common/Units.h>
+}}
+
+class noncobject inet::units::values::W;
+class noncobject inet::units::values::Hz;
+
 enum AppPacketType
 {
     JOIN_REQUEST = 1;
@@ -28,13 +36,14 @@ enum AppPacketType
 
 class LoRaOptions {
     double LoRaTP = -1;
-    double LoRaCF = -1;
+    inet::units::values::Hz LoRaCF;
     int LoRaSF = -1;
-    double LoRaBW = -1;
+    inet::units::values::Hz LoRaBW;
     int LoRaCR = -1;
+    double RSSI;
     bool UseHeader = true;
-    bool ADRACKReq = false;
-    bool AppACKReq = false;
+    bool ADRACKReq;
+    bool AppACKReq;
 }
 
 packet LoRaAppPacket {
