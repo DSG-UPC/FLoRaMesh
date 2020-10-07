@@ -25,6 +25,10 @@ module LoRaNode
 {
     parameters:
         string deploymentType = default("");
+        double minX @unit(m) = default(0m);
+        double maxX @unit(m) = default(1000m);
+        double minY @unit(m) = default(0m);
+        double maxY @unit(m) = default(1000m);
         double maxGatewayDistance = default(320.0);
         double gatewayX = default(320.0);
         double gatewayY = default(320.0);
