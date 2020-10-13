@@ -24,6 +24,8 @@ void LoRaNodeApp::initialize(int stage)
 {
     cSimpleModule::initialize(stage);
     if (stage == INITSTAGE_LOCAL) {
+        // Get this node's ID
+        nodeId = getContainingNode(this)->getIndex();
         std::pair<double,double> coordsValues = std::make_pair(-1, -1);
         cModule *host = getContainingNode(this);
         // Generate random location for nodes if circle deployment type
@@ -34,15 +36,24 @@ void LoRaNodeApp::initialize(int stage)
            mobility->par("initialY").setDoubleValue(coordsValues.second);
         }
         else if (strcmp(host->par("deploymentType").stringValue(), "edges")==0) {
-            nodeId = getContainingNode(this)->getIndex();
             int minX = host->par("minX");
             int maxX = host->par("maxX");
             int minY = host->par("minY");
             int maxY = host->par("maxY");
             StationaryMobility *mobility = check_and_cast<StationaryMobility *>(host->getSubmodule("mobility"));
-            mobility->par("initialX").setDoubleValue(maxX*(((nodeId+1)%4/2)%2));
-            mobility->par("initialY").setDoubleValue(maxY*(((nodeId)%4/2)%2));
+            mobility->par("initialX").setDoubleValue(minX+maxX*(((nodeId+1)%4/2)%2));
+            mobility->par("initialY").setDoubleValue(minY+maxY*(((nodeId)%4/2)%2));
          }
+        else if (strcmp(host->par("deploymentType").stringValue(), "grid")==0) {
+            int minX = host->par("minX");
+            int sepX = host->par("sepX");
+            int minY = host->par("minY");
+            int sepY = host->par("sepY");
+            int cols = host->par("cols");
+            StationaryMobility *mobility = check_and_cast<StationaryMobility *>(host->getSubmodule("mobility"));
+            mobility->par("initialX").setDoubleValue(minX+sepX*(nodeId%cols));
+            mobility->par("initialY").setDoubleValue(minY+sepY*((int)nodeId/cols));
+                 }
     }
     else if (stage == INITSTAGE_APPLICATION_LAYER) {
         bool isOperational;
