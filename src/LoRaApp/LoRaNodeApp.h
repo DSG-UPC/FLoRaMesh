@@ -17,6 +17,7 @@
 #define __LORA_OMNET_LORANODEAPP_H_
 
 #include <omnetpp.h>
+
 #include "inet/common/lifecycle/ILifecycle.h"
 #include "inet/common/lifecycle/NodeStatus.h"
 #include "inet/common/ModuleAccess.h"
@@ -41,20 +42,27 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         virtual void handleMessage(cMessage *msg) override;
         virtual bool handleOperationStage(LifecycleOperation *operation, int stage, IDoneCallback *doneCallback) override;
         virtual bool isNeighbour(int neighbourId);
+        virtual bool isSMRTNeighbour(int neighbourId);
+        virtual bool isKnownNode(int knownNodeId);
         virtual bool isACKed(int nodeId);
         virtual bool isPacketForwarded(cMessage *msg);
         virtual bool isPacketToBeForwarded(cMessage *msg);
+        virtual bool isDataPacketForMeUnique(cMessage *msg);
 
         void handleMessageFromLowerLayer(cMessage *msg);
+        void handleSelfDataPacket();
+        void handleSelfRoutingPacket();
+        void sendRoutingPacket();
         void manageReceivedPacketForMe(cMessage *msg);
         void manageReceivedAckPacketForMe(cMessage *msg);
         void manageReceivedDataPacketForMe(cMessage *msg);
         void manageReceivedPacketToForward(cMessage *msg);
         void manageReceivedAckPacketToForward(cMessage *msg);
         void manageReceivedDataPacketToForward(cMessage *msg);
+        void manageReceivedRoutingPacket(cMessage *msg);
         std::pair<double,double> generateUniformCircleCoordinates(double radius, double gatewayX, double gatewayY);
         void sendJoinRequest();
-        void sendDataPacket();
+        void sendPacket();
         void sendDownMgmtPacket();
         void generateDataPackets();
 
@@ -65,6 +73,7 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
 
         int sentPackets;
         int sentDataPackets;
+        int sentRoutingPackets;
         int sentAckPackets;
         int receivedPackets;
         int receivedPacketsForMe;
@@ -72,6 +81,7 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         int receivedPacketsToForward;
         int receivedDataPackets;
         int receivedDataPacketsForMe;
+        int receivedDataPacketsForMeUnique;
         int receivedDataPacketsFromMe;
         int receivedDataPacketsToForward;
         int receivedDataPacketsToForwardCorrect;
@@ -84,6 +94,7 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         int receivedAckPacketsToForwardCorrect;
         int receivedAckPacketsToForwardExpired;
         int receivedAckPacketsToForwardUnique;
+        int receivedRoutingPackets;
         int receivedADRCommands;
         int forwardedPackets;
         int forwardedDataPackets;
@@ -91,9 +102,12 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         int lastSentMeasurement;
         simtime_t timeToFirstPacket;
         simtime_t timeToNextPacket;
+        simtime_t timeToFirstRoutingPacket;
+        simtime_t timeToNextRoutingPacket;
 
         cMessage *configureLoRaParameters;
         cMessage *selfDataPacket;
+        cMessage *selfRoutingPacket;
 
         //history of sent packets;
         cOutVector txSfVector;
@@ -116,16 +130,20 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
 
         //Routing variables
         int packetForwarding;
+        double ownDataPriority;
         int maxHops;
 
         //Node info
         int nodeId;
 
         std::vector<int> neighbourNodes;
+        std::vector<int> knownNodes;
         std::vector<int> ACKedNodes;
         std::vector<LoRaAppPacket> LoRaPacketsToSend;
         std::vector<LoRaAppPacket> LoRaPacketsToForward;
         std::vector<LoRaAppPacket> LoRaPacketsForwarded;
+        std::vector<LoRaAppPacket> DataPacketsForMe;
+
 
         //Application parameters
         bool requestACKfromApp;
@@ -133,12 +151,26 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         bool AppACKReceived;
         int firstACK;
 
-
         //Spreading factor
         bool increaseSF;
         int firstACKSF;
         int packetsPerSF;
         int packetsInSF;
+
+        //LoRa settings
+        int minLoRaSF;
+        int maxLoRaSF;
+
+        // Routing tables
+        class singleMetricRoute {
+
+            public:
+                int id;
+                int via;
+                int metric;
+        };
+        std::vector<singleMetricRoute> singleMetricRoutingTable;
+
 
     public:
         LoRaNodeApp() {}
@@ -152,6 +184,7 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         bool loRaUseHeader;
         bool loRaCAD;
         double loRaCADatt;
+
 };
 
 }

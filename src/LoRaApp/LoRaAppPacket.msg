@@ -32,6 +32,7 @@ enum AppPacketType
     DATA = 3;
     TXCONFIG = 4;
     ACK = 5;
+    ROUTING = 6;
 }
 
 class LoRaOptions {
@@ -46,6 +47,11 @@ class LoRaOptions {
     bool AppACKReq;
 }
 
+class LoRaRoute {
+    int id;
+    int metric;
+}
+
 packet LoRaAppPacket {
     int msgType @enum(AppPacketType);
     int dataInt;
@@ -54,4 +60,5 @@ packet LoRaAppPacket {
     int destination;
     int ttl;
     int via;
+	LoRaRoute routingTable[];
 }

@@ -26,9 +26,13 @@ simple LoRaNodeApp
         int numberOfPacketsToForward = default(0);
         volatile double timeToFirstPacket @unit(s) = default(10s);
         volatile double timeToNextPacket @unit(s) = default(10s);
+        volatile double timeToFirstRoutingPacket @unit(s) = default(10s);
+        volatile double timeToNextRoutingPacket @unit(s) = default(10s);
         double initialLoRaTP @unit(dBm) = default(14dBm);
         double initialLoRaCF @unit(Hz) = default(868MHz);
         int initialLoRaSF = default(12);
+        int minLoRaSF = default(7);
+        int maxLoRaSF = default(12);
         double initialLoRaBW @unit(Hz) = default(125kHz);
         int initialLoRaCR = default(4);
         bool initialUseHeader = default(true);
@@ -37,7 +41,8 @@ simple LoRaNodeApp
         @class(inet::LoRaNodeApp);
         bool evaluateADRinNode = default(false);
         int numberOfNodes;
-        int packetForwarding;
+        int packetForwarding = default(0);
+        int ownDataPriority = default(1);
         int maxHops = default(1);
         bool requestACKfromApp = default(false);
         bool stopOnACK = default(true);
