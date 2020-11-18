@@ -44,6 +44,7 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         virtual bool handleOperationStage(LifecycleOperation *operation, int stage, IDoneCallback *doneCallback) override;
         virtual bool isNeighbour(int neighbourId);
         virtual bool isSMRTNeighbour(int neighbourId);
+        virtual bool isRouteInDualMetricRoutingTableNeighbour(int id, int via, int sf);
         virtual bool isKnownNode(int knownNodeId);
         virtual bool isACKed(int nodeId);
         virtual bool isPacketForwarded(cMessage *msg);
@@ -171,6 +172,17 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
                 int metric;
         };
         std::vector<singleMetricRoute> singleMetricRoutingTable;
+
+        class dualMetricRoute {
+
+            public:
+                int id;
+                int via;
+                int metric;
+                int sf;
+        };
+        std::vector<dualMetricRoute> dualMetricRoutingTable;
+
 
         /**
          * @name CsmaCaMac state variables

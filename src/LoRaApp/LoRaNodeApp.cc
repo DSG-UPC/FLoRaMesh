@@ -175,6 +175,7 @@ void LoRaNodeApp::initialize(int stage) {
 
         //Routing table
         singleMetricRoutingTable = {};
+        dualMetricRoutingTable = {};
 
         //Node identifier
         nodeId = getContainingNode(this)->getIndex();
@@ -231,7 +232,8 @@ void LoRaNodeApp::initialize(int stage) {
             WATCH_VECTOR(knownNodes);
             WATCH_VECTOR(ACKedNodes);
 
-            //WATCH_LIST(singleMetricRoutingTable);
+            //WATCH_VECTOR(singleMetricRoutingTable);
+            //WATCH_VECTOR(dualMetreicRoutingTable);
 
             WATCH_VECTOR(LoRaPacketsToSend);
             WATCH_VECTOR(LoRaPacketsToForward);
@@ -575,7 +577,37 @@ void LoRaNodeApp::manageReceivedRoutingPacket(cMessage *msg) {
                 break;
 
             case TIME_ON_AIR_CAD:
-                bubble("Processing routing packet");
+                EV << endl;
+                EV << "Processing routing packet in node " << nodeId << endl;
+                EV << "Routing table size: " << end(dualMetricRoutingTable) - begin(dualMetricRoutingTable) << endl;
+
+                if ( !isRouteInDualMetricRoutingTableNeighbour(packet->getSource(), packet->getSource(), packet->getOptions().getLoRaSF())) {
+                    EV << "Adding neighbour " << packet->getSource() << " with SF " << packet->getOptions().getLoRaSF() << endl;
+
+                    dualMetricRoute newNeighbour;
+                    newNeighbour.id = packet->getSource();
+                    newNeighbour.via = packet->getSource();
+                    newNeighbour.sf = packet->getOptions().getLoRaSF();
+                    newNeighbour.metric = pow(2, packet->getOptions().getLoRaSF() - 7);
+                    dualMetricRoutingTable.push_back(newNeighbour);
+                }
+
+
+
+                for (int i = 0; i < packet->getRoutingTableArraySize(); i++) {
+                    LoRaRoute thisRoute = packet->getRoutingTable(i);
+
+                    if (  thisRoute.getId() != nodeId && !isRouteInDualMetricRoutingTableNeighbour(packet->getSource(), packet->getVia(), packet->getOptions().getLoRaSF())) {
+                        EV << "Adding route to node " << thisRoute.getId() << endl;
+                        dualMetricRoute newRoute;
+                        newRoute.id = thisRoute.getId();
+                        newRoute.via = packet->getSource();
+                        newRoute.sf = packet->getOptions().getLoRaSF();
+                        newRoute.metric = thisRoute.getMetric() + pow(2, packet->getOptions().getLoRaSF());
+                    }
+                }
+
+                EV << "Routing table size: " << end(dualMetricRoutingTable) - begin(dualMetricRoutingTable) << endl;
                 break;
 
             default:
@@ -796,7 +828,8 @@ void LoRaNodeApp::sendRoutingPacket() {
     LoRaAppPacket *routingPacket = new LoRaAppPacket("DataFrame");
 
     std::vector<LoRaRoute> theseLoRaRoutes;
-    int routesCount = end(singleMetricRoutingTable) - begin(singleMetricRoutingTable) ;
+    int singleMetricRoutesCount = end(singleMetricRoutingTable) - begin(singleMetricRoutingTable);
+    int dualMetricRoutesCount = end(dualMetricRoutingTable) - begin(dualMetricRoutingTable);
 
     switch (packetForwarding) {
 
@@ -810,11 +843,12 @@ void LoRaNodeApp::sendRoutingPacket() {
             break;
 
         case HOP_COUNT_SINGLE_SF:
+        case RSSI_SINGLE_SF:
            transmit = true;
 
-           routingPacket->setRoutingTableArraySize(routesCount);
+           routingPacket->setRoutingTableArraySize(singleMetricRoutesCount);
 
-           for (int i = 0; i < routesCount; i++) {
+           for (int i = 0; i < singleMetricRoutesCount; i++) {
                LoRaRoute thisLoRaRoute;
                thisLoRaRoute.setId(singleMetricRoutingTable[i].id);
                thisLoRaRoute.setMetric(singleMetricRoutingTable[i].metric);
@@ -823,13 +857,34 @@ void LoRaNodeApp::sendRoutingPacket() {
 
            break;
 
-        case RSSI_SINGLE_SF:
-            break;
-
         case TIME_ON_AIR_CAD:
-            break;
+            transmit = true;
 
-        default:
+            std::vector<LoRaRoute> allLoRaRoutes;
+//            std::vector<LoRaRoute> bestLoRaRoutes;
+
+            routingPacket->setRoutingTableArraySize(dualMetricRoutesCount);
+
+           for (int i = 0; i < dualMetricRoutesCount; i++) {
+               LoRaRoute thisLoRaRoute;
+               thisLoRaRoute.setId(dualMetricRoutingTable[i].id);
+               thisLoRaRoute.setMetric(dualMetricRoutingTable[i].metric);
+               allLoRaRoutes.push_back(thisLoRaRoute);
+               routingPacket->setRoutingTable(i, thisLoRaRoute);
+           }
+
+//           for (int j = 0; j < routesCount; j++) {
+//               LoRaRoute thisLoRaRoute;
+//
+//
+//               thisLoRaRoute.setId(dualMetricRoutingTable[i].id);
+//               thisLoRaRoute.setMetric(dualMetricRoutingTable[i].metric);
+//               allLoRaRoutes.push_back(thisLoRaRoute);
+//           }
+
+          //routingPacket->setRoutingTableArraySize(routesCount);
+       //   routingPacket->setRoutingTable(i, allLoRaRoutes);
+
             break;
     }
 
@@ -946,6 +1001,16 @@ bool LoRaNodeApp::isSMRTNeighbour(int neighbourId) {
     return false;
 }
 
+bool LoRaNodeApp::isRouteInDualMetricRoutingTableNeighbour(int id, int via, int sf) {
+    for (std::vector<dualMetricRoute>::iterator nbptr = dualMetricRoutingTable.begin();
+            nbptr < dualMetricRoutingTable.end(); nbptr++) {
+
+        if (nbptr->id == id && nbptr->sf == sf && nbptr->via == via) {
+            return true;
+        }
+    }
+    return false;
+}
 
 bool LoRaNodeApp::isKnownNode(int knownNodeId) {
     for (std::vector<int>::iterator nbptr = knownNodes.begin();
