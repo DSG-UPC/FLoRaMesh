@@ -22,6 +22,7 @@
 #include "inet/common/lifecycle/NodeStatus.h"
 #include "inet/common/ModuleAccess.h"
 #include "inet/common/lifecycle/LifecycleOperation.h"
+#include "inet/common/FSMA.h"
 
 #include "LoRaAppPacket_m.h"
 #include "LoRa/LoRaMacControlInfo_m.h"
@@ -171,6 +172,21 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         };
         std::vector<singleMetricRoute> singleMetricRoutingTable;
 
+        /**
+         * @name CsmaCaMac state variables
+         * Various state information checked and modified according to the state machine.
+         */
+        //@{
+        enum State {
+            IDLE,
+            TRANSMIT,
+            WAIT_DELAY_1,
+            LISTENING_1,
+            RECEIVING_1,
+            WAIT_DELAY_2,
+            LISTENING_2,
+            RECEIVING_2,
+        };
 
     public:
         LoRaNodeApp() {}

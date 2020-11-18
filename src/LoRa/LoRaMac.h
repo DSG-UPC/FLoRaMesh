@@ -68,7 +68,7 @@ class LoRaMac : public MACProtocolBase
     IRadio::TransmissionState transmissionState = IRadio::TRANSMISSION_STATE_UNDEFINED;
     IRadio::ReceptionState receptionState = IRadio::RECEPTION_STATE_UNDEFINED;
 
-    cFSM fsm;
+//    cFSM fsm;
 
     /** Remaining backoff period in seconds */
     simtime_t backoffPeriod = -1;
@@ -130,6 +130,8 @@ class LoRaMac : public MACProtocolBase
     virtual ~LoRaMac();
     //@}
     virtual DevAddr getAddress();
+
+    cFSM fsm;
 
   protected:
     /**

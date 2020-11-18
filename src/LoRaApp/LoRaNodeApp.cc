@@ -14,6 +14,9 @@
 // 
 
 #include "LoRaNodeApp.h"
+#include "inet/common/FSMA.h"
+#include "../LoRa/LoRaMac.h"
+
 
 #include "inet/mobility/static/StationaryMobility.h"
 namespace inet {
@@ -36,6 +39,10 @@ void LoRaNodeApp::initialize(int stage) {
         nodeId = getContainingNode(this)->getIndex();
         std::pair<double, double> coordsValues = std::make_pair(-1, -1);
         cModule *host = getContainingNode(this);
+
+        //EV << "AAAAAAAAAAAAAAAAAAAAAA" << getParentModule()->getSubmodule("LoRaNodeNic")->getSubmodule("mac")->getDisplayString() << endl;
+
+
         // Generate random location for nodes if circle deployment type
         if (strcmp(host->par("deploymentType").stringValue(), "circle") == 0) {
             coordsValues = generateUniformCircleCoordinates(
@@ -343,12 +350,16 @@ void LoRaNodeApp::handleMessage(cMessage *msg) {
 
 void LoRaNodeApp::handleSelfDataPacket() {
 
-    if (simTime() >= getSimulation()->getWarmupPeriod()) {
-        bool schedule = false;
+    LoRaMac *lrmc = (LoRaMac *)getParentModule()->getSubmodule("LoRaNic")->getSubmodule("mac");
+
+    bool schedule = false;
+
+    // Only proceed to send a data packet if the 'mac' module in 'LoRaNic' is IDLE and the warmup period is due
+    if ( lrmc->fsm.getState() == IDLE && simTime() >= getSimulation()->getWarmupPeriod() ) {
 
         // Check conditions for sending own data packet
-        if (LoRaPacketsToSend.size() > 0) // || sentPackets < numberOfPacketsToSend) && (!AppACKReceived || !stopOnACK))
-                {
+        if (LoRaPacketsToSend.size() > 0)  // || sentPackets < numberOfPacketsToSend) && (!AppACKReceived || !stopOnACK))
+        {
             sendPacket();
             schedule = true;
         }
@@ -361,8 +372,12 @@ void LoRaNodeApp::handleSelfDataPacket() {
             // Schedule a self-message, since we have room for forwarding
             schedule = true;
         }
+    }
+    else {
+        schedule = true;
+    }
 
-        // Schedule the next self-message
+    // Schedule the next self-message
         if (schedule) {
             double time;
             if (loRaSF == 7)
@@ -378,38 +393,43 @@ void LoRaNodeApp::handleSelfDataPacket() {
             if (loRaSF == 12)
                 time = 171.2128;
 
-            do {
-                // Warning: too small a par("timeToNextPacket") causes a lock here.
-                // timeToNextPacket = par("timeToNextPacket");
-                //
-                // Workaround:
-                timeToNextPacket = math::max(time,
-                        par("timeToNextPacket"));
-            } while (timeToNextPacket <= time);
+        do {
+            // Warning: too small a par("timeToNextPacket") causes a lock here.
+            // timeToNextPacket = par("timeToNextPacket");
+            //
+            // Workaround:
+            timeToNextPacket = math::max(time,
+                    par("timeToNextPacket"));
+        } while (timeToNextPacket <= time);
 
-            selfDataPacket = new cMessage("selfDataPacket");
-            scheduleAt(simTime() + timeToNextPacket, selfDataPacket);
-        }
+        selfDataPacket = new cMessage("selfDataPacket");
+        scheduleAt(simTime() + timeToNextPacket, selfDataPacket);
     }
 }
 
 void LoRaNodeApp::handleSelfRoutingPacket() {
 
-    double time;
-    if (loRaSF == 7)
-        time = 7.808;
-    if (loRaSF == 8)
-        time = 13.9776;
-    if (loRaSF == 9)
-        time = 24.6784;
-    if (loRaSF == 10)
-        time = 49.3568;
-    if (loRaSF == 11)
-        time = 85.6064;
-    if (loRaSF == 12)
-        time = 171.2128;
+    LoRaMac *lrmc = (LoRaMac *)getParentModule()->getSubmodule("LoRaNic")->getSubmodule("mac");
 
-    sendRoutingPacket();
+    // Only proceed to send a routing packet if the 'mac' module in 'LoRaNic' is IDLE
+    if ( lrmc->fsm.getState() == IDLE ) {
+
+        sendRoutingPacket();
+        }
+
+    double time;
+            if (loRaSF == 7)
+                time = 7.808;
+            if (loRaSF == 8)
+                time = 13.9776;
+            if (loRaSF == 9)
+                time = 24.6784;
+            if (loRaSF == 10)
+                time = 49.3568;
+            if (loRaSF == 11)
+                time = 85.6064;
+            if (loRaSF == 12)
+                time = 171.2128;
 
     selfRoutingPacket = new cMessage("selfRoutingPacket");
     timeToNextPacket = math::max(time, par("timeToNextRoutingPacket"));
@@ -507,15 +527,18 @@ void LoRaNodeApp::manageReceivedRoutingPacket(cMessage *msg) {
                 for (int i = 0; i < packet->getRoutingTableArraySize(); i++) {
                     LoRaRoute thisRoute = packet->getRoutingTable(i);
 
-                    if (!isSMRTNeighbour(thisRoute.getId())) {
+                    if (!isSMRTNeighbour(thisRoute.getId()) && thisRoute.getId() != nodeId) {
                         EV << "Adding route to node " << thisRoute.getId() << endl;
                         singleMetricRoute newRoute;
                         newRoute.id = thisRoute.getId();
                         newRoute.via = packet->getSource();
-                        newRoute.id = thisRoute.getMetric()+1;
+                        newRoute.metric = thisRoute.getMetric()+1;
+
+                        singleMetricRoutingTable.push_back(newRoute);
                     }
                 }
 
+                EV << "Routing table size: " << end(singleMetricRoutingTable) - begin(singleMetricRoutingTable) << endl;
                 break;
 
             case RSSI_SINGLE_SF:
@@ -539,15 +562,16 @@ void LoRaNodeApp::manageReceivedRoutingPacket(cMessage *msg) {
                 for (int i = 0; i < packet->getRoutingTableArraySize(); i++) {
                     LoRaRoute thisRoute = packet->getRoutingTable(i);
 
-                    if (!isSMRTNeighbour(thisRoute.getId())) {
+                    if (!isSMRTNeighbour(thisRoute.getId()) && thisRoute.getId() != nodeId) {
                         EV << "Adding route to node " << thisRoute.getId() << endl;
                         singleMetricRoute newRoute;
                         newRoute.id = thisRoute.getId();
                         newRoute.via = packet->getSource();
-                        newRoute.id = thisRoute.getMetric()+std::abs(packet->getOptions().getRSSI());
+                        newRoute.metric = thisRoute.getMetric()+std::abs(packet->getOptions().getRSSI());
                     }
                 }
 
+                EV << "Routing table size: " << end(singleMetricRoutingTable) - begin(singleMetricRoutingTable) << endl;
                 break;
 
             case TIME_ON_AIR_CAD:
@@ -771,19 +795,48 @@ void LoRaNodeApp::sendRoutingPacket() {
     bool transmit = false;
     LoRaAppPacket *routingPacket = new LoRaAppPacket("DataFrame");
 
+    std::vector<LoRaRoute> theseLoRaRoutes;
+    int routesCount = end(singleMetricRoutingTable) - begin(singleMetricRoutingTable) ;
+
     switch (packetForwarding) {
 
-    case 0:
-        break;
+        case NO_FORWARDING:
+            break;
 
-    default:
-        transmit = true;
-        sentPackets++;
-        sentRoutingPackets++;
-        break;
+        case DUMMY_BROADCAST_SINGLE_SF:
+            break;
+
+        case SMART_BROADCAST_SINGLE_SF:
+            break;
+
+        case HOP_COUNT_SINGLE_SF:
+           transmit = true;
+
+           routingPacket->setRoutingTableArraySize(routesCount);
+
+           for (int i = 0; i < routesCount; i++) {
+               LoRaRoute thisLoRaRoute;
+               thisLoRaRoute.setId(singleMetricRoutingTable[i].id);
+               thisLoRaRoute.setMetric(singleMetricRoutingTable[i].metric);
+               routingPacket->setRoutingTable(i, thisLoRaRoute);
+           }
+
+           break;
+
+        case RSSI_SINGLE_SF:
+            break;
+
+        case TIME_ON_AIR_CAD:
+            break;
+
+        default:
+            break;
     }
 
+
     if (transmit) {
+        sentPackets++;
+        sentRoutingPackets++;
         //add LoRa control info
         LoRaMacControlInfo *cInfo = new LoRaMacControlInfo;
         cInfo->setLoRaTP(loRaTP);
@@ -806,6 +859,9 @@ void LoRaNodeApp::sendRoutingPacket() {
         send(routingPacket, "appOut");
         bubble("Sending routing packet");
         emit(LoRa_AppPacketSent, loRaSF);
+    }
+    else {
+        delete routingPacket;
     }
 }
 
@@ -855,6 +911,7 @@ void LoRaNodeApp::generateDataPackets() {
             }
 
             LoRaPacketsToSend.push_back(*dataPacket);
+            delete dataPacket;
         }
     }
 }
