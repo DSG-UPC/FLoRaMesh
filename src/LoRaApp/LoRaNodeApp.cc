@@ -861,7 +861,7 @@ void LoRaNodeApp::sendRoutingPacket() {
             transmit = true;
 
             std::vector<LoRaRoute> allLoRaRoutes;
-//            std::vector<LoRaRoute> bestLoRaRoutes;
+//          std::vector<LoRaRoute> bestLoRaRoutes;
 
             routingPacket->setRoutingTableArraySize(dualMetricRoutesCount);
 
