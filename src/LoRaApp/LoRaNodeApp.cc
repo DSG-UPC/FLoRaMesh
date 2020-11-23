@@ -40,9 +40,6 @@ void LoRaNodeApp::initialize(int stage) {
         std::pair<double, double> coordsValues = std::make_pair(-1, -1);
         cModule *host = getContainingNode(this);
 
-        //EV << "AAAAAAAAAAAAAAAAAAAAAA" << getParentModule()->getSubmodule("LoRaNodeNic")->getSubmodule("mac")->getDisplayString() << endl;
-
-
         // Generate random location for nodes if circle deployment type
         if (strcmp(host->par("deploymentType").stringValue(), "circle") == 0) {
             coordsValues = generateUniformCircleCoordinates(
@@ -136,7 +133,7 @@ void LoRaNodeApp::initialize(int stage) {
         numberOfPacketsPerDestination = par("numberOfPacketsPerDestination");
 
         numberOfPacketsToForward = par("numberOfPacketsToForward");
-        maxHops = par("maxHops");
+        packetTTL = par("packetTTL");
 
         LoRa_AppPacketSent = registerSignal("LoRa_AppPacketSent");
 
@@ -161,9 +158,13 @@ void LoRaNodeApp::initialize(int stage) {
         numberOfNodes = par("numberOfNodes");
 
         //Routing variables
-        packetForwarding = par("packetForwarding");
+        routingMetric = par("routingMetric");
+        routeDiscovery = par("routeDiscovery");
         ownDataPriority = par("ownDataPriority");
-        maxHops = par("maxHops");
+        routeTimeout = par("routeTimeout");
+        storeBestRoutesOnly = par("storeBestRouteOnly");
+        getRoutesFromDataPackets = par("getRoutesFromDataPackets");
+        packetTTL = par("packetTTL");
 
         neighbourNodes = {};
         knownNodes = {};
@@ -415,9 +416,8 @@ void LoRaNodeApp::handleSelfRoutingPacket() {
 
     // Only proceed to send a routing packet if the 'mac' module in 'LoRaNic' is IDLE
     if ( lrmc->fsm.getState() == IDLE ) {
-
         sendRoutingPacket();
-        }
+    }
 
     double time;
             if (loRaSF == 7)
@@ -486,7 +486,7 @@ void LoRaNodeApp::manageReceivedRoutingPacket(cMessage *msg) {
 
         receivedRoutingPackets++;
 
-        switch (packetForwarding) {
+        switch (routingMetric) {
 
             case NO_FORWARDING:
                 bubble("Discarding routing packet as forwarding is disabled");
@@ -503,6 +503,7 @@ void LoRaNodeApp::manageReceivedRoutingPacket(cMessage *msg) {
                     newRoute.id = packet->getSource();
                     newRoute.via = packet->getSource();
                     newRoute.metric = 1;
+                    newRoute.valid = simTime() + routeTimeout;
 
                     singleMetricRoutingTable.push_back(newRoute);
                 }
@@ -522,6 +523,7 @@ void LoRaNodeApp::manageReceivedRoutingPacket(cMessage *msg) {
                      newNeighbour.id = packet->getSource();
                      newNeighbour.via = packet->getSource();
                      newNeighbour.metric = 1;
+                     newNeighbour.valid = simTime() + routeTimeout;
 
                      singleMetricRoutingTable.push_back(newNeighbour);
                 }
@@ -535,6 +537,7 @@ void LoRaNodeApp::manageReceivedRoutingPacket(cMessage *msg) {
                         newRoute.id = thisRoute.getId();
                         newRoute.via = packet->getSource();
                         newRoute.metric = thisRoute.getMetric()+1;
+                        newRoute.valid = simTime() + routeTimeout;
 
                         singleMetricRoutingTable.push_back(newRoute);
                     }
@@ -557,6 +560,7 @@ void LoRaNodeApp::manageReceivedRoutingPacket(cMessage *msg) {
                      newNeighbour.id = packet->getSource();
                      newNeighbour.via = packet->getSource();
                      newNeighbour.metric = 1;
+                     newNeighbour.valid = simTime() + routeTimeout;
 
                      singleMetricRoutingTable.push_back(newNeighbour);
                 }
@@ -570,6 +574,7 @@ void LoRaNodeApp::manageReceivedRoutingPacket(cMessage *msg) {
                         newRoute.id = thisRoute.getId();
                         newRoute.via = packet->getSource();
                         newRoute.metric = thisRoute.getMetric()+std::abs(packet->getOptions().getRSSI());
+                        newRoute.valid = simTime() + routeTimeout;
                     }
                 }
 
@@ -589,6 +594,7 @@ void LoRaNodeApp::manageReceivedRoutingPacket(cMessage *msg) {
                     newNeighbour.via = packet->getSource();
                     newNeighbour.sf = packet->getOptions().getLoRaSF();
                     newNeighbour.metric = pow(2, packet->getOptions().getLoRaSF() - 7);
+                    newNeighbour.valid = simTime() + routeTimeout;
                     dualMetricRoutingTable.push_back(newNeighbour);
                 }
 
@@ -597,13 +603,15 @@ void LoRaNodeApp::manageReceivedRoutingPacket(cMessage *msg) {
                 for (int i = 0; i < packet->getRoutingTableArraySize(); i++) {
                     LoRaRoute thisRoute = packet->getRoutingTable(i);
 
-                    if (  thisRoute.getId() != nodeId && !isRouteInDualMetricRoutingTableNeighbour(packet->getSource(), packet->getVia(), packet->getOptions().getLoRaSF())) {
+                    if (  thisRoute.getId() != nodeId && !isRouteInDualMetricRoutingTableNeighbour(
+                            packet->getSource(), packet->getVia(), packet->getOptions().getLoRaSF())) {
                         EV << "Adding route to node " << thisRoute.getId() << endl;
                         dualMetricRoute newRoute;
                         newRoute.id = thisRoute.getId();
                         newRoute.via = packet->getSource();
                         newRoute.sf = packet->getOptions().getLoRaSF();
                         newRoute.metric = thisRoute.getMetric() + pow(2, packet->getOptions().getLoRaSF());
+                        newRoute.valid = simTime() + routeTimeout;
                     }
                 }
 
@@ -645,6 +653,9 @@ void LoRaNodeApp::manageReceivedDataPacketToForward(cMessage *msg) {
     receivedDataPacketsToForward++;
 
     LoRaAppPacket *packet = check_and_cast<LoRaAppPacket *>(msg);
+    LoRaAppPacket *dataPacket = packet->dup();
+    bool delDataPacket = false;
+
 
     // Check for too old packets with TTL <= 1
     if (packet->getTtl() <= 1) {
@@ -656,46 +667,44 @@ void LoRaNodeApp::manageReceivedDataPacketToForward(cMessage *msg) {
     else {
         receivedDataPacketsToForwardCorrect++;
 
-        switch (packetForwarding) {
-        // Forwarding disabled
-        case 0:
-            bubble("Discarding packet as forwarding is disabled");
-            break;
-            // Forwarding enabled
-        default:
-            // Check if the packet has already been forwarded
-            if (isPacketForwarded(packet)) {
-                bubble("This packet has already been forwarded!");
-            }
-            // Check if the packet is buffered to be forwarded
-            else if (isPacketToBeForwarded(packet)) {
-                bubble("This packet is already scheduled to be forwarded!");
-            } else {
-                bubble("Saving packet to forward it later!");
+        switch (routingMetric) {
+            case NO_FORWARDING:
+                bubble("Discarding packet as forwarding is disabled");
+                delDataPacket = true;
+                break;
+
+            case DUMMY_BROADCAST_SINGLE_SF:
                 receivedDataPacketsToForwardUnique++;
-
-                // Duplicate the packet
-                // ToDo: maybe "LoRaAppPacket *dataPacket = packet->dup();" instead?
-
-                LoRaAppPacket *dataPacket = new LoRaAppPacket("DataFrame");
-                dataPacket->setMsgType(packet->getMsgType());
-
-                dataPacket->setDataInt(packet->getDataInt());
-
-                dataPacket->setSource(packet->getSource());
-                dataPacket->setDestination(packet->getDestination());
-
-                dataPacket->getOptions().setAppACKReq(
-                        packet->getOptions().getAppACKReq());
-                dataPacket->getOptions().setADRACKReq(
-                        packet->getOptions().getADRACKReq());
-
                 dataPacket->setTtl(packet->getTtl() - 1);
-
                 LoRaPacketsToForward.push_back(*dataPacket);
-            }
+                break;
+
+            case HOP_COUNT_SINGLE_SF:
+            case RSSI_SINGLE_SF:
+            case TIME_ON_AIR_CAD:
+            default:
+                // Check if the packet has already been forwarded
+                if (isPacketForwarded(packet)) {
+                    bubble("This packet has already been forwarded!");
+                    delDataPacket = true;
+                }
+                // Check if the packet is buffered to be forwarded
+                else if (isPacketToBeForwarded(packet)) {
+                    bubble("This packet is already scheduled to be forwarded!");
+                    delDataPacket = true;
+                    } else {
+                        bubble("Saving packet to forward it later!");
+                        receivedDataPacketsToForwardUnique++;
+
+                        dataPacket->setTtl(packet->getTtl() - 1);
+                        LoRaPacketsToForward.push_back(*dataPacket);
+                    }
         }
+
     }
+
+    if (delDataPacket)
+        delete dataPacket;
 }
 
 void LoRaNodeApp::manageReceivedPacketForMe(cMessage *msg) {
@@ -753,7 +762,7 @@ void LoRaNodeApp::sendPacket() {
     bool transmit = false;
 
     // Send local data packets with a configurable ownDataPriority priority over packets to forward, if there is any
-    if ((LoRaPacketsToSend.size() > 0 && uniform(0, 1) < ownDataPriority)
+    if ((LoRaPacketsToSend.size() > 0 && bernoulli(ownDataPriority))
             || (LoRaPacketsToSend.size() > 0 && LoRaPacketsToForward.size() == 0)) {
 
         // Get the first data packet in the buffer to send it
@@ -769,55 +778,83 @@ void LoRaNodeApp::sendPacket() {
     // Forward other nodes' packets, if any
     else if (LoRaPacketsToForward.size() > 0) {
 
-        switch (packetForwarding) {
+        switch (routingMetric) {
+            case NO_FORWARDING:
+                // This should never happen
+                bubble("Forwarding disabled!");
+                break;
 
-        case 1:
-            while (LoRaPacketsToForward.size() > 0) {
-
-                // Get the first packet in the forwarding buffer to send it
-                LoRaAppPacket *firstDataPacket = &LoRaPacketsToForward.at(0);
-                dataPacket = firstDataPacket->dup();
+            case DUMMY_BROADCAST_SINGLE_SF:
+                // Get the first packet in the forwarding buffer
+                dataPacket = LoRaPacketsToForward.begin()->dup();
                 LoRaPacketsToForward.erase(LoRaPacketsToForward.begin());
 
-                // Check that the packet has not been forwarded in the mean time, this should never occur
-                if (isPacketForwarded(dataPacket)) {
-                    delete dataPacket;
-                    break;
-                } else {
-                    transmit = true;
-                    sentPackets++;
-                    forwardedPackets++;
-                    bubble("Forwarding packet!");
+                transmit = true;
+                sentPackets++;
+                forwardedPackets++;
+                bubble("Forwarding packet!");
 
-                    // Keep a copy of the forwarded packet to avoid sending it again if received later on
-                    LoRaPacketsForwarded.push_back(*dataPacket->dup());
+                break;
+
+            case SMART_BROADCAST_SINGLE_SF:
+            case HOP_COUNT_SINGLE_SF:
+            case RSSI_SINGLE_SF:
+            case TIME_ON_AIR_CAD:
+            default:
+                while (LoRaPacketsToForward.size() > 0) {
+
+                    // Get the first packet in the forwarding buffer to send it
+                    dataPacket = LoRaPacketsToForward.begin()->dup();
+                    LoRaPacketsToForward.erase(LoRaPacketsToForward.begin());
+
+                    // Check that the packet has not been forwarded in the mean time, this should never occur
+                    if (isPacketForwarded(dataPacket)) {
+                        delete dataPacket;
+                    } else {
+                        bubble("Forwarding packet!");
+                        sentPackets++;
+                        forwardedPackets++;
+                        transmit = true;
+
+                        // Keep a copy of the forwarded packet to avoid sending it again if received later on
+                        LoRaPacketsForwarded.push_back(*dataPacket->dup());
+                        break;
+                    }
                 }
-            }
-            break;
+                break;
 
-        default:
-            // Get the first packet in the forwarding buffer to delete it
-            LoRaPacketsToForward.erase(LoRaPacketsToForward.begin());
-            transmit = false;
-            break;
         }
-
     }
 
-    //add LoRa control info
-    LoRaMacControlInfo *cInfo = new LoRaMacControlInfo;
-    cInfo->setLoRaTP(loRaTP);
-    cInfo->setLoRaCF(loRaCF);
-    cInfo->setLoRaSF(loRaSF);
-    cInfo->setLoRaBW(loRaBW);
-    cInfo->setLoRaCR(loRaCR);
-
-    dataPacket->setControlInfo(cInfo);
-
     if (transmit) {
+        //add LoRa control info
+        LoRaMacControlInfo *cInfo = new LoRaMacControlInfo;
+        cInfo->setLoRaTP(loRaTP);
+        cInfo->setLoRaCF(loRaCF);
+        cInfo->setLoRaSF(loRaSF);
+        cInfo->setLoRaBW(loRaBW);
+        cInfo->setLoRaCR(loRaCR);
+
+        dataPacket->setControlInfo(cInfo);
+
+        switch (routingMetric) {
+            case DUMMY_BROADCAST_SINGLE_SF:
+                dataPacket->setVia(BROADCAST_ADDRESS);
+                break;
+            case SMART_BROADCAST_SINGLE_SF:
+            case HOP_COUNT_SINGLE_SF:
+            case RSSI_SINGLE_SF:
+                dataPacket->setVia(getRouteTo(dataPacket->getDestination()));
+                break;
+            case TIME_ON_AIR_CAD:
+                dataPacket->setVia(getRouteTo(dataPacket->getDestination()));
+                cInfo->setLoRaSF(getSFTo(dataPacket->getVia()));
+                break;
+        }
+
+        send(dataPacket, "appOut");
         txSfVector.record(loRaSF);
         txTpVector.record(loRaTP);
-        send(dataPacket, "appOut");
         emit(LoRa_AppPacketSent, loRaSF);
     }
 }
@@ -827,11 +864,19 @@ void LoRaNodeApp::sendRoutingPacket() {
     bool transmit = false;
     LoRaAppPacket *routingPacket = new LoRaAppPacket("DataFrame");
 
+    LoRaMacControlInfo *cInfo = new LoRaMacControlInfo;
+
+    cInfo->setLoRaTP(loRaTP);
+    cInfo->setLoRaCF(loRaCF);
+    cInfo->setLoRaSF(loRaSF);
+    cInfo->setLoRaBW(loRaBW);
+    cInfo->setLoRaCR(loRaCR);
+
     std::vector<LoRaRoute> theseLoRaRoutes;
     int singleMetricRoutesCount = end(singleMetricRoutingTable) - begin(singleMetricRoutingTable);
     int dualMetricRoutesCount = end(dualMetricRoutingTable) - begin(dualMetricRoutingTable);
 
-    switch (packetForwarding) {
+    switch (routingMetric) {
 
         case NO_FORWARDING:
             break;
@@ -860,8 +905,9 @@ void LoRaNodeApp::sendRoutingPacket() {
         case TIME_ON_AIR_CAD:
             transmit = true;
 
+            cInfo->setLoRaSF(pickCADSF());
+
             std::vector<LoRaRoute> allLoRaRoutes;
-//          std::vector<LoRaRoute> bestLoRaRoutes;
 
             routingPacket->setRoutingTableArraySize(dualMetricRoutesCount);
 
@@ -873,18 +919,6 @@ void LoRaNodeApp::sendRoutingPacket() {
                routingPacket->setRoutingTable(i, thisLoRaRoute);
            }
 
-//           for (int j = 0; j < routesCount; j++) {
-//               LoRaRoute thisLoRaRoute;
-//
-//
-//               thisLoRaRoute.setId(dualMetricRoutingTable[i].id);
-//               thisLoRaRoute.setMetric(dualMetricRoutingTable[i].metric);
-//               allLoRaRoutes.push_back(thisLoRaRoute);
-//           }
-
-          //routingPacket->setRoutingTableArraySize(routesCount);
-       //   routingPacket->setRoutingTable(i, allLoRaRoutes);
-
             break;
     }
 
@@ -893,12 +927,7 @@ void LoRaNodeApp::sendRoutingPacket() {
         sentPackets++;
         sentRoutingPackets++;
         //add LoRa control info
-        LoRaMacControlInfo *cInfo = new LoRaMacControlInfo;
-        cInfo->setLoRaTP(loRaTP);
-        cInfo->setLoRaCF(loRaCF);
-        cInfo->setLoRaSF(loRaSF);
-        cInfo->setLoRaBW(loRaBW);
-        cInfo->setLoRaCR(loRaCR);
+
 
         routingPacket->setControlInfo(cInfo);
 
@@ -956,12 +985,12 @@ void LoRaNodeApp::generateDataPackets() {
             dataPacket->setDestination(destinations[j]);
             dataPacket->getOptions().setAppACKReq(requestACKfromApp);
 
-            switch (packetForwarding) {
+            switch (routingMetric) {
 //            case 0:
 //                dataPacket->setTtl(1);
 //                break;
             default:
-                dataPacket->setTtl(maxHops);
+                dataPacket->setTtl(packetTTL);
                 break;
             }
 
@@ -1078,6 +1107,109 @@ bool LoRaNodeApp::isDataPacketForMeUnique(cMessage *msg) {
         }
     }
     return true;
+}
+
+int LoRaNodeApp::pickCADSF() {
+    do {
+        int thisSF = intuniform(minLoRaSF,maxLoRaSF);
+        if (bernoulli(pow(0.5, thisSF-minLoRaSF+1)))
+            return thisSF;
+    } while (true);
+}
+
+int LoRaNodeApp::getRouteTo(int destination) {
+    if (singleMetricRoutingTable.size() > 0) {
+
+        int singleMetricRoutesCount = end(singleMetricRoutingTable) - begin(singleMetricRoutingTable);
+        EV << "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB " << singleMetricRoutesCount << endl;
+
+        std::vector<singleMetricRoute> availableRoutes;
+
+        for (int i = 0; i < singleMetricRoutesCount; i++) {
+            if (singleMetricRoutingTable[i].id == destination) {
+                availableRoutes.push_back(singleMetricRoutingTable[i]);
+            }
+        }
+        singleMetricRoutesCount = end(singleMetricRoutingTable) - begin(singleMetricRoutingTable);
+        EV << "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB " << singleMetricRoutesCount << endl;
+
+        if (availableRoutes.size() > 0) {
+            int bestRoute = 0;
+
+            int availableRoutesCount = end(availableRoutes) - begin(availableRoutes);
+            for (int j = 0; j < availableRoutesCount; j++) {
+                if (availableRoutes[j].metric < availableRoutes[bestRoute].metric) {
+                    bestRoute = j;
+                }
+            }
+
+            return availableRoutes[bestRoute].via;
+        }
+    }
+    else if (dualMetricRoutingTable.size() > 0) {
+        int dualMetricRoutesCount = end(dualMetricRoutingTable) - begin(dualMetricRoutingTable);
+
+        std::vector<dualMetricRoute> availableRoutes;
+
+        for (int i = 0; i < dualMetricRoutesCount; i++) {
+            if (dualMetricRoutingTable[i].id == destination) {
+                availableRoutes.push_back(dualMetricRoutingTable[i]);
+            }
+        }
+
+        dualMetricRoutesCount = end(dualMetricRoutingTable) - begin(dualMetricRoutingTable);
+
+        if (availableRoutes.size() > 0) {
+            int bestRoute = 0;
+
+            int availableRoutesCount = end(availableRoutes) - begin(availableRoutes);
+
+            for (int j = 0; j < availableRoutesCount; j++) {
+                if (availableRoutes[j].metric < availableRoutes[bestRoute].metric) {
+                    bestRoute = j;
+                }
+            }
+
+            return availableRoutes[bestRoute].via;
+        }
+    }
+
+    return BROADCAST_ADDRESS;
+}
+
+int LoRaNodeApp::getSFTo(int destination) {
+    if (dualMetricRoutingTable.size() > 0) {
+        int dualMetricRoutesCount = end(dualMetricRoutingTable) - begin(dualMetricRoutingTable);
+
+        std::vector<dualMetricRoute> availableRoutes;
+
+        for (int i = 0; i < dualMetricRoutesCount; i++) {
+            if (dualMetricRoutingTable[i].id == destination) {
+                availableRoutes.push_back(dualMetricRoutingTable[i]);
+            }
+        }
+
+        dualMetricRoutesCount = end(dualMetricRoutingTable) - begin(dualMetricRoutingTable);
+
+        if (availableRoutes.size() > 0) {
+            int bestRoute = 0;
+
+            int availableRoutesCount = end(availableRoutes) - begin(availableRoutes);
+
+            for (int j = 0; j < availableRoutesCount; j++) {
+                if (availableRoutes[j].sf < availableRoutes[bestRoute].sf) {
+                    bestRoute = j;
+                }
+            }
+
+            if ( availableRoutes[bestRoute].sf >= minLoRaSF && availableRoutes[bestRoute].sf <= maxLoRaSF) {
+                return availableRoutes[bestRoute].sf;
+            }
+
+        }
+    }
+
+    return minLoRaSF;
 }
 
 } //end namespace inet

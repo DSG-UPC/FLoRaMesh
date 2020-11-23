@@ -41,9 +41,14 @@ simple LoRaNodeApp
         @class(inet::LoRaNodeApp);
         bool evaluateADRinNode = default(false);
         int numberOfNodes;
-        int packetForwarding = default(0);
+        int routingMetric = default(0);
+        bool routeDiscovery = default(true);
         int ownDataPriority = default(1);
-        int maxHops = default(1);
+        int packetTTL = default(1);
+        int routingPacketPriority = default(0.5);
+        bool storeBestRouteOnly = default(false);
+        bool getRoutesFromDataPackets = default(true);
+        volatile double routeTimeout @unit(s) = default(60s);
         bool requestACKfromApp = default(false);
         bool stopOnACK = default(true);
         bool AppACKReceived = default(false);

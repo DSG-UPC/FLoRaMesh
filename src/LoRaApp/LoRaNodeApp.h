@@ -67,6 +67,9 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         void sendPacket();
         void sendDownMgmtPacket();
         void generateDataPackets();
+        int pickCADSF();
+        int getRouteTo(int destination);
+        int getSFTo(int destination);
 
         int numberOfDestinationsPerNode;
         int numberOfPacketsPerDestination;
@@ -131,9 +134,14 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         int numberOfNodes;
 
         //Routing variables
-        int packetForwarding;
+        int routingMetric;
+        bool routeDiscovery;
+        simtime_t routeTimeout;
+        bool storeBestRoutesOnly;
+        bool getRoutesFromDataPackets;
+
         double ownDataPriority;
-        int maxHops;
+        int packetTTL;
 
         //Node info
         int nodeId;
@@ -170,6 +178,7 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
                 int id;
                 int via;
                 int metric;
+                simtime_t valid;
         };
         std::vector<singleMetricRoute> singleMetricRoutingTable;
 
@@ -180,6 +189,7 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
                 int via;
                 int metric;
                 int sf;
+                simtime_t valid;
         };
         std::vector<dualMetricRoute> dualMetricRoutingTable;
 
@@ -199,6 +209,7 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
             LISTENING_2,
             RECEIVING_2,
         };
+
 
     public:
         LoRaNodeApp() {}

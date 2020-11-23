@@ -164,7 +164,6 @@ void LoRaMac::handleSelfMessage(cMessage *msg)
 
 void LoRaMac::handleUpperPacket(cPacket *msg)
 {
-    EV << "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" << endl;
     if(fsm.getState() != IDLE)
         {
             error(fsm.getStateName());
