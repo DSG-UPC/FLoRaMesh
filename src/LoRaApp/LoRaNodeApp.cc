@@ -27,8 +27,9 @@ namespace inet {
 #define DUMMY_BROADCAST_SINGLE_SF   1
 #define SMART_BROADCAST_SINGLE_SF   2
 #define HOP_COUNT_SINGLE_SF         3
-#define RSSI_SINGLE_SF              4
-#define TIME_ON_AIR_CAD             5
+#define RSSI_SUM_SINGLE_SF          4
+#define RSSI_PROD_SINGLE_SF         5
+#define TIME_ON_AIR_CAD             6
 
 Define_Module (LoRaNodeApp);
 
@@ -532,7 +533,7 @@ void LoRaNodeApp::manageReceivedRoutingPacket(cMessage *msg) {
                     LoRaRoute thisRoute = packet->getRoutingTable(i);
 
                     if (!isSMRTNeighbour(thisRoute.getId()) && thisRoute.getId() != nodeId) {
-                        EV << "Adding route to node " << thisRoute.getId() << endl;
+                    EV << "Adding route to node " << thisRoute.getId() << endl;
                         singleMetricRoute newRoute;
                         newRoute.id = thisRoute.getId();
                         newRoute.via = packet->getSource();
@@ -546,7 +547,7 @@ void LoRaNodeApp::manageReceivedRoutingPacket(cMessage *msg) {
                 EV << "Routing table size: " << end(singleMetricRoutingTable) - begin(singleMetricRoutingTable) << endl;
                 break;
 
-            case RSSI_SINGLE_SF:
+            case RSSI_SUM_SINGLE_SF:
                 bubble("Processing routing packet");
 
                 EV << endl;
@@ -680,7 +681,7 @@ void LoRaNodeApp::manageReceivedDataPacketToForward(cMessage *msg) {
                 break;
 
             case HOP_COUNT_SINGLE_SF:
-            case RSSI_SINGLE_SF:
+            case RSSI_SUM_SINGLE_SF:
             case TIME_ON_AIR_CAD:
             default:
                 // Check if the packet has already been forwarded
@@ -798,7 +799,7 @@ void LoRaNodeApp::sendPacket() {
 
             case SMART_BROADCAST_SINGLE_SF:
             case HOP_COUNT_SINGLE_SF:
-            case RSSI_SINGLE_SF:
+            case RSSI_SUM_SINGLE_SF:
             case TIME_ON_AIR_CAD:
             default:
                 while (LoRaPacketsToForward.size() > 0) {
@@ -843,7 +844,7 @@ void LoRaNodeApp::sendPacket() {
                 break;
             case SMART_BROADCAST_SINGLE_SF:
             case HOP_COUNT_SINGLE_SF:
-            case RSSI_SINGLE_SF:
+            case RSSI_SUM_SINGLE_SF:
                 dataPacket->setVia(getRouteTo(dataPacket->getDestination()));
                 break;
             case TIME_ON_AIR_CAD:
@@ -888,7 +889,7 @@ void LoRaNodeApp::sendRoutingPacket() {
             break;
 
         case HOP_COUNT_SINGLE_SF:
-        case RSSI_SINGLE_SF:
+        case RSSI_SUM_SINGLE_SF:
            transmit = true;
 
            routingPacket->setRoutingTableArraySize(singleMetricRoutesCount);
@@ -1121,7 +1122,6 @@ int LoRaNodeApp::getRouteTo(int destination) {
     if (singleMetricRoutingTable.size() > 0) {
 
         int singleMetricRoutesCount = end(singleMetricRoutingTable) - begin(singleMetricRoutingTable);
-        EV << "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB " << singleMetricRoutesCount << endl;
 
         std::vector<singleMetricRoute> availableRoutes;
 
@@ -1131,20 +1131,31 @@ int LoRaNodeApp::getRouteTo(int destination) {
             }
         }
         singleMetricRoutesCount = end(singleMetricRoutingTable) - begin(singleMetricRoutingTable);
-        EV << "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB " << singleMetricRoutesCount << endl;
 
         if (availableRoutes.size() > 0) {
             int bestRoute = 0;
+            int bestMetric = availableRoutes[0].metric;
 
             int availableRoutesCount = end(availableRoutes) - begin(availableRoutes);
             for (int j = 0; j < availableRoutesCount; j++) {
-                if (availableRoutes[j].metric < availableRoutes[bestRoute].metric) {
-                    bestRoute = j;
+                if (availableRoutes[j].metric < bestMetric) {
+                    bestMetric = availableRoutes[j].metric;
                 }
             }
 
+            simtime_t lastMetric = 0;
+
+            for (int k = 0; k < availableRoutesCount; k++) {
+                if (availableRoutes[k].metric == bestMetric) {
+                    if (availableRoutes[k].valid >= lastMetric) {
+                        bestRoute = k;
+                        lastMetric = availableRoutes[k].valid;
+                    }
+                }
+            }
             return availableRoutes[bestRoute].via;
         }
+        return BROADCAST_ADDRESS;
     }
     else if (dualMetricRoutingTable.size() > 0) {
         int dualMetricRoutesCount = end(dualMetricRoutingTable) - begin(dualMetricRoutingTable);
@@ -1169,7 +1180,7 @@ int LoRaNodeApp::getRouteTo(int destination) {
                     bestRoute = j;
                 }
             }
-
+            EV << "Best available route to " << destination << " is via " << availableRoutes[bestRoute].via << " with SF " << "availableRoutes[bestRoute].sf" << endl;
             return availableRoutes[bestRoute].via;
         }
     }
@@ -1205,7 +1216,6 @@ int LoRaNodeApp::getSFTo(int destination) {
             if ( availableRoutes[bestRoute].sf >= minLoRaSF && availableRoutes[bestRoute].sf <= maxLoRaSF) {
                 return availableRoutes[bestRoute].sf;
             }
-
         }
     }
 
