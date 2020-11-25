@@ -43,8 +43,10 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         virtual void handleMessage(cMessage *msg) override;
         virtual bool handleOperationStage(LifecycleOperation *operation, int stage, IDoneCallback *doneCallback) override;
         virtual bool isNeighbour(int neighbourId);
-        virtual bool isSMRTNeighbour(int neighbourId);
-        virtual bool isRouteInDualMetricRoutingTableNeighbour(int id, int via, int sf);
+        virtual bool isRouteInSingleMetricRoutingTable(int id, int via);
+        virtual int  getRouteIndexInRouteInSingleMetricRoutingTable(int id, int via);
+        virtual bool isRouteInDualMetricRoutingTable(int id, int via, int sf);
+        virtual int  getRouteIndexInDualMetricRoutingTable(int id, int via, int sf);
         virtual bool isKnownNode(int knownNodeId);
         virtual bool isACKed(int nodeId);
         virtual bool isPacketForwarded(cMessage *msg);
@@ -67,8 +69,9 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         void sendPacket();
         void sendDownMgmtPacket();
         void generateDataPackets();
+        void sanitizeRoutingTable();
         int pickCADSF();
-        int getRouteTo(int destination);
+        int getBestRouteIndexTo(int destination);
         int getSFTo(int destination);
 
         int numberOfDestinationsPerNode;
@@ -109,6 +112,9 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         simtime_t timeToNextPacket;
         simtime_t timeToFirstRoutingPacket;
         simtime_t timeToNextRoutingPacket;
+
+        simtime_t firstDataPacketReceptionTime;
+        simtime_t lastDataPacketReceptionTime;
 
         cMessage *configureLoRaParameters;
         cMessage *selfDataPacket;
@@ -177,7 +183,7 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
             public:
                 int id;
                 int via;
-                int metric;
+                double metric;
                 simtime_t valid;
         };
         std::vector<singleMetricRoute> singleMetricRoutingTable;
@@ -187,7 +193,8 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
             public:
                 int id;
                 int via;
-                int metric;
+                double priMetric;
+                double secMetric;
                 int sf;
                 simtime_t valid;
         };

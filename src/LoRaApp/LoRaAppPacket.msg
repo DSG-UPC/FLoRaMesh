@@ -49,7 +49,8 @@ class LoRaOptions {
 
 class LoRaRoute {
     int id;
-    int metric;
+    int priMetric;
+    int secMetric;
 }
 
 packet LoRaAppPacket {
