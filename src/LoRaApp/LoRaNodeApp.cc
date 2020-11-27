@@ -855,8 +855,6 @@ void LoRaNodeApp::manageReceivedDataPacketToForward(cMessage *msg) {
 
     LoRaAppPacket *packet = check_and_cast<LoRaAppPacket *>(msg);
     LoRaAppPacket *dataPacket = packet->dup();
-    bool delDataPacket = false;
-
 
     // Check for too old packets with TTL <= 1
     if (packet->getTtl() <= 1) {
@@ -871,7 +869,6 @@ void LoRaNodeApp::manageReceivedDataPacketToForward(cMessage *msg) {
         switch (routingMetric) {
             case NO_FORWARDING:
                 bubble("Discarding packet as forwarding is disabled");
-                delDataPacket = true;
                 break;
 
             case DUMMY_BROADCAST_SINGLE_SF:
@@ -890,12 +887,10 @@ void LoRaNodeApp::manageReceivedDataPacketToForward(cMessage *msg) {
                 // Check if the packet has already been forwarded
                 if (isPacketForwarded(packet)) {
                     bubble("This packet has already been forwarded!");
-                    delDataPacket = true;
                 }
                 // Check if the packet is buffered to be forwarded
                 else if (isPacketToBeForwarded(packet)) {
                     bubble("This packet is already scheduled to be forwarded!");
-                    delDataPacket = true;
                     } else {
                         bubble("Saving packet to forward it later!");
                         receivedDataPacketsToForwardUnique++;
@@ -907,8 +902,7 @@ void LoRaNodeApp::manageReceivedDataPacketToForward(cMessage *msg) {
 
     }
 
-    if (delDataPacket)
-        delete dataPacket;
+    delete dataPacket;
 }
 
 void LoRaNodeApp::manageReceivedPacketForMe(cMessage *msg) {
@@ -963,15 +957,30 @@ bool LoRaNodeApp::handleOperationStage(LifecycleOperation *operation, int stage,
 
 void LoRaNodeApp::sendPacket() {
     LoRaAppPacket *dataPacket = new LoRaAppPacket("DataFrame");
+
     bool transmit = false;
 
     // Send local data packets with a configurable ownDataPriority priority over packets to forward, if there is any
     if ((LoRaPacketsToSend.size() > 0 && bernoulli(ownDataPriority))
             || (LoRaPacketsToSend.size() > 0 && LoRaPacketsToForward.size() == 0)) {
 
-        // Get the first data packet in the buffer to send it
-        LoRaAppPacket *firstDataPacket = &LoRaPacketsToSend.front();
-        dataPacket = firstDataPacket->dup();
+        // Name packets to ease tracking
+        std::string fullName = dataPacket->getName();;
+        const char* addName = "Orig";
+        fullName += addName;
+        fullName += std::to_string(nodeId);
+
+        dataPacket->setName(fullName.c_str());
+
+        // Get the data from the first packet in the data buffer to send it
+        dataPacket->setMsgType(LoRaPacketsToSend.front().getMsgType());
+        dataPacket->setDataInt(LoRaPacketsToSend.front().getDataInt());
+        dataPacket->setSource(LoRaPacketsToSend.front().getSource());
+        dataPacket->setVia(LoRaPacketsToSend.front().getSource());
+        dataPacket->setDestination(LoRaPacketsToSend.front().getDestination());
+        dataPacket->setTtl(LoRaPacketsToSend.front().getTtl());
+        dataPacket->getOptions().setAppACKReq(LoRaPacketsToSend.front().getOptions().getAppACKReq());
+
         LoRaPacketsToSend.erase(LoRaPacketsToSend.begin());
 
         transmit = true;
@@ -982,6 +991,12 @@ void LoRaNodeApp::sendPacket() {
     // Forward other nodes' packets, if any
     else if (LoRaPacketsToForward.size() > 0) {
 
+        std::string fullName = dataPacket->getName();;
+        const char* addName = "Fwd";
+        fullName += addName;
+        dataPacket->setName(fullName.c_str());
+        fullName += std::to_string(nodeId);
+
         switch (routingMetric) {
             case NO_FORWARDING:
                 // This should never happen
@@ -990,7 +1005,21 @@ void LoRaNodeApp::sendPacket() {
 
             case DUMMY_BROADCAST_SINGLE_SF:
                 // Get the first packet in the forwarding buffer
-                dataPacket = LoRaPacketsToForward.begin()->dup();
+
+                addName = "Dummy";
+                fullName += addName;
+                dataPacket->setName(fullName.c_str());
+
+
+                // Get the data from the first packet in the forwarding buffer to send it
+                dataPacket->setMsgType(LoRaPacketsToForward.front().getMsgType());
+                dataPacket->setDataInt(LoRaPacketsToForward.front().getDataInt());
+                dataPacket->setSource(LoRaPacketsToForward.front().getSource());
+                dataPacket->setVia(LoRaPacketsToForward.front().getSource());
+                dataPacket->setDestination(LoRaPacketsToForward.front().getDestination());
+                dataPacket->setTtl(LoRaPacketsToForward.front().getTtl());
+                dataPacket->getOptions().setAppACKReq(LoRaPacketsToForward.front().getOptions().getAppACKReq());
+
                 LoRaPacketsToForward.erase(LoRaPacketsToForward.begin());
 
                 transmit = true;
@@ -1010,21 +1039,29 @@ void LoRaNodeApp::sendPacket() {
             default:
                 while (LoRaPacketsToForward.size() > 0) {
 
-                    // Get the first packet in the forwarding buffer to send it
-                    dataPacket = LoRaPacketsToForward.begin()->dup();
+                    addName = "Other";
+                    fullName += addName;
+                    dataPacket->setName(fullName.c_str());
+
+                    // Get the data from the first packet in the forwarding buffer to send it
+                    dataPacket->setMsgType(LoRaPacketsToForward.front().getMsgType());
+                    dataPacket->setDataInt(LoRaPacketsToForward.front().getDataInt());
+                    dataPacket->setSource(LoRaPacketsToForward.front().getSource());
+                    dataPacket->setVia(LoRaPacketsToForward.front().getSource());
+                    dataPacket->setDestination(LoRaPacketsToForward.front().getDestination());
+                    dataPacket->setTtl(LoRaPacketsToForward.front().getTtl());
+                    dataPacket->getOptions().setAppACKReq(LoRaPacketsToForward.front().getOptions().getAppACKReq());
                     LoRaPacketsToForward.erase(LoRaPacketsToForward.begin());
 
                     // Check that the packet has not been forwarded in the mean time, this should never occur
-                    if (isPacketForwarded(dataPacket)) {
-                        delete dataPacket;
-                    } else {
+                    if (!isPacketForwarded(dataPacket)) {
                         bubble("Forwarding packet!");
                         sentPackets++;
                         forwardedPackets++;
                         transmit = true;
 
                         // Keep a copy of the forwarded packet to avoid sending it again if received later on
-                        LoRaPacketsForwarded.push_back(*dataPacket->dup());
+                        LoRaPacketsForwarded.push_back(*dataPacket);
                         break;
                     }
                 }
@@ -1034,6 +1071,12 @@ void LoRaNodeApp::sendPacket() {
     }
 
     if (transmit) {
+
+        std::string fullName = dataPacket->getName();;
+        const char* ownName = "Tx";
+        fullName += ownName;
+        dataPacket->setName(fullName.c_str());
+
         //add LoRa control info
         LoRaMacControlInfo *cInfo = new LoRaMacControlInfo;
         cInfo->setLoRaTP(loRaTP);
@@ -1081,12 +1124,15 @@ void LoRaNodeApp::sendPacket() {
         txTpVector.record(loRaTP);
         emit(LoRa_AppPacketSent, loRaSF);
     }
+    else {
+        delete dataPacket;
+    }
 }
 
 void LoRaNodeApp::sendRoutingPacket() {
 
     bool transmit = false;
-    LoRaAppPacket *routingPacket = new LoRaAppPacket("DataFrame");
+    LoRaAppPacket *routingPacket = new LoRaAppPacket("RoutingPacket");
 
     LoRaMacControlInfo *cInfo = new LoRaMacControlInfo;
 
@@ -1204,7 +1250,7 @@ void LoRaNodeApp::generateDataPackets() {
 
     for (int j = 0; j < destinations.size(); j++) {
         for (int k = 0; k < numberOfPacketsPerDestination; k++) {
-            LoRaAppPacket *dataPacket = new LoRaAppPacket("DataFrame");
+            LoRaAppPacket *dataPacket = new LoRaAppPacket("DataPacket");
 
             dataPacket->setMsgType(DATA);
             dataPacket->setDataInt(k);
