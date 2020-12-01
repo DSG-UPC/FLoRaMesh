@@ -131,6 +131,8 @@ void LoRaNodeApp::initialize(int stage) {
 
         LoRa_AppPacketSent = registerSignal("LoRa_AppPacketSent");
 
+        currDataInt = 0;
+
         //LoRa physical layer parameters
         loRaTP = par("initialLoRaTP").doubleValue();
         loRaCF = units::values::Hz(par("initialLoRaCF").doubleValue());
@@ -1276,7 +1278,7 @@ void LoRaNodeApp::generateDataPackets() {
             LoRaAppPacket *dataPacket = new LoRaAppPacket("DataPacket");
 
             dataPacket->setMsgType(DATA);
-            dataPacket->setDataInt(k);
+            dataPacket->setDataInt(currDataInt+k);
             dataPacket->setSource(nodeId);
             dataPacket->setVia(nodeId);
             dataPacket->setDestination(destinations[j]);
@@ -1294,6 +1296,7 @@ void LoRaNodeApp::generateDataPackets() {
             LoRaPacketsToSend.push_back(*dataPacket);
             delete dataPacket;
         }
+        currDataInt++;
     }
 }
 

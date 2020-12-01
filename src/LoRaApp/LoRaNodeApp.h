@@ -137,6 +137,8 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         bool sendNextPacketWithADRACKReq = false;
         void increaseSFIfPossible();
 
+        int currDataInt;
+
         //General network variables
         int numberOfNodes;
 
