@@ -89,7 +89,7 @@ network LoRaMotoNetworkTest
 }
 
 
-network LoRaMotoMesh
+network LoRaMesh
 {
     parameters:
         int numberOfNodes = default(1);
