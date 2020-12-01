@@ -43,7 +43,7 @@ simple LoRaNodeApp
         int numberOfNodes;
         int routingMetric = default(0);
         bool routeDiscovery = default(true);
-        int ownDataPriority = default(1);
+        double ownDataPriority = default(1);
         int packetTTL = default(1);
         int routingPacketPriority = default(0.5);
         bool storeBestRouteOnly = default(false);
