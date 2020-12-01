@@ -90,20 +90,7 @@ void LoRaNodeApp::initialize(int stage) {
             throw cRuntimeError("This module doesn't support starting in node DOWN state");
         }
 
-        timeToFirstPacket = math::max(5, par("timeToFirstPacket"));
-        timeToFirstRoutingPacket = math::max(5, par("timeToFirstRoutingPacket"));
-
-        EV << "Time to first data packet: " << timeToFirstPacket << endl;
-        EV << "Time to first routing packet: " << timeToFirstRoutingPacket << endl;
-
-        // Timer for sending local data packets or forwarding them
-        selfDataPacket = new cMessage("selfDataPacket");
-        scheduleAt(simTime() + timeToFirstPacket, selfDataPacket);
-
-        // Timer for sending routing protocol packets
-        selfRoutingPacket = new cMessage("selfRoutingPacket");
-        scheduleAt(simTime() + timeToFirstRoutingPacket, selfRoutingPacket);
-
+        // Initialize counters
         sentPackets = 0;
         sentDataPackets = 0;
         sentRoutingPackets = 0;
@@ -253,6 +240,29 @@ void LoRaNodeApp::initialize(int stage) {
         }
 
         generateDataPackets();
+
+        // Initialize timers
+        timeToFirstPacket = math::max(5, par("timeToFirstPacket"));
+        timeToFirstRoutingPacket = math::max(5, par("timeToFirstRoutingPacket"));
+        EV << "Time to first data packet: " << timeToFirstPacket << endl;
+        EV << "Time to first routing packet: " << timeToFirstRoutingPacket << endl;
+
+        // Timer for sending local data packets or forwarding them
+        selfDataPacket = new cMessage("selfDataPacket");
+        scheduleAt(simTime() + timeToFirstPacket, selfDataPacket);
+
+        // Timer for sending routing protocol packets
+        selfRoutingPacket = new cMessage("selfRoutingPacket");
+        switch (routingMetric) {
+            // Do not generate selfRoutingPackets as no routing packets need to be sent
+            case NO_FORWARDING:
+            case DUMMY_BROADCAST_SINGLE_SF:
+            case SMART_BROADCAST_SINGLE_SF:
+                break;
+            // Schedule selfRoutingPackets
+            default:
+                scheduleAt(simTime() + timeToFirstRoutingPacket, selfRoutingPacket);
+        }
     }
 }
 
@@ -371,8 +381,10 @@ void LoRaNodeApp::handleSelfDataPacket() {
     bool schedule = false;
 
     // Only proceed to send a data packet if the 'mac' module in 'LoRaNic' is IDLE and the warmup period is due
-    if ( (lrmc->fsm.getState() == IDLE || lrmc->fsm.getState() == WAIT_DELAY_1 || lrmc->fsm.getState() == LISTENING_1 || lrmc->fsm.getState() == WAIT_DELAY_2 || lrmc->fsm.getState() == LISTENING_2)
-            && simTime() >= getSimulation()->getWarmupPeriod() ) {
+    if ( (lrmc->fsm.getState() == IDLE
+// ToDo: check if all states are acceptable
+//            || lrmc->fsm.getState() == WAIT_DELAY_1 || lrmc->fsm.getState() == LISTENING_1 || lrmc->fsm.getState() == WAIT_DELAY_2 || lrmc->fsm.getState() == LISTENING_2
+            ) && simTime() >= getSimulation()->getWarmupPeriod() ) {
 
         // Generate more packets if needed
         if (sendPacketsContinuously && LoRaPacketsToSend.size() == 0){
@@ -971,6 +983,8 @@ void LoRaNodeApp::sendPacket() {
     if ((LoRaPacketsToSend.size() > 0 && bernoulli(ownDataPriority))
             || (LoRaPacketsToSend.size() > 0 && LoRaPacketsToForward.size() == 0)) {
 
+        bubble("Sending a local data packet!");
+
         // Name packets to ease tracking
         std::string fullName = dataPacket->getName();;
         const char* addName = "Orig";
@@ -991,12 +1005,14 @@ void LoRaNodeApp::sendPacket() {
         LoRaPacketsToSend.erase(LoRaPacketsToSend.begin());
 
         transmit = true;
-        sentPackets++;
+
         sentDataPackets++;
     }
 
     // Forward other nodes' packets, if any
     else if (LoRaPacketsToForward.size() > 0) {
+
+        bubble("Forwarding a packet!");
 
         std::string fullName = dataPacket->getName();;
         const char* addName = "Fwd";
@@ -1030,7 +1046,7 @@ void LoRaNodeApp::sendPacket() {
                 LoRaPacketsToForward.erase(LoRaPacketsToForward.begin());
 
                 transmit = true;
-                sentPackets++;
+
                 forwardedPackets++;
                 bubble("Forwarding packet!");
 
@@ -1063,7 +1079,6 @@ void LoRaNodeApp::sendPacket() {
                     // Check that the packet has not been forwarded in the mean time, this should never occur
                     if (!isPacketForwarded(dataPacket)) {
                         bubble("Forwarding packet!");
-                        sentPackets++;
                         forwardedPackets++;
                         transmit = true;
 
@@ -1078,6 +1093,7 @@ void LoRaNodeApp::sendPacket() {
     }
 
     if (transmit) {
+        sentPackets++;
 
         std::string fullName = dataPacket->getName();;
         const char* ownName = "Tx";
