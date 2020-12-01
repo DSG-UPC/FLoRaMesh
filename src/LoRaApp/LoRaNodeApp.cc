@@ -135,6 +135,7 @@ void LoRaNodeApp::initialize(int stage) {
         firstDataPacketReceptionTime = 0;
         lastDataPacketReceptionTime = 0;
 
+        sendPacketsContinuously = par("sendPacketsContinuously");
         numberOfDestinationsPerNode = par("numberOfDestinationsPerNode");
         numberOfPacketsPerDestination = par("numberOfPacketsPerDestination");
 
@@ -370,7 +371,13 @@ void LoRaNodeApp::handleSelfDataPacket() {
     bool schedule = false;
 
     // Only proceed to send a data packet if the 'mac' module in 'LoRaNic' is IDLE and the warmup period is due
-    if ( lrmc->fsm.getState() == IDLE && simTime() >= getSimulation()->getWarmupPeriod() ) {
+    if ( (lrmc->fsm.getState() == IDLE || lrmc->fsm.getState() == WAIT_DELAY_1 || lrmc->fsm.getState() == LISTENING_1 || lrmc->fsm.getState() == WAIT_DELAY_2 || lrmc->fsm.getState() == LISTENING_2)
+            && simTime() >= getSimulation()->getWarmupPeriod() ) {
+
+        // Generate more packets if needed
+        if (sendPacketsContinuously && LoRaPacketsToSend.size() == 0){
+            generateDataPackets();
+        }
 
         // Check conditions for sending own data packet
         if (LoRaPacketsToSend.size() > 0)  // || sentPackets < numberOfPacketsToSend) && (!AppACKReceived || !stopOnACK))

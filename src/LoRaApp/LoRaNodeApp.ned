@@ -55,6 +55,7 @@ simple LoRaNodeApp
         bool increaseSF = default(false);
         int packetsPerSF = default(1);
         int packetsInSF = default(0);
+        bool sendPacketsContinuously = default(false);
         int numberOfDestinationsPerNode = default(1);
         int numberOfPacketsPerDestination = default(1);
     gates:

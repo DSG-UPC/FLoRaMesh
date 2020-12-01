@@ -74,6 +74,7 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         int getBestRouteIndexTo(int destination);
         int getSFTo(int destination);
 
+        bool sendPacketsContinuously;
         int numberOfDestinationsPerNode;
         int numberOfPacketsPerDestination;
 
