@@ -106,7 +106,7 @@ network LoRaMesh
             @display("p=83.664,150.192;is=s");
         }
         LoRaMedium: LoRaMedium {
-            @display("p=150,100");
+            @display("p=200,200");
         }
         networkServer: StandardHost {
             parameters:
