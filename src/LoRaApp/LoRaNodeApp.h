@@ -54,9 +54,10 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         virtual bool isDataPacketForMeUnique(cMessage *msg);
 
         void handleMessageFromLowerLayer(cMessage *msg);
-        void handleSelfDataPacket();
-        void handleSelfRoutingPacket();
-        void sendRoutingPacket();
+        void handleSelfMessage(cMessage *msg);
+
+        simtime_t sendRoutingPacket();
+        simtime_t sendDataPacket();
         void manageReceivedPacketForMe(cMessage *msg);
         void manageReceivedAckPacketForMe(cMessage *msg);
         void manageReceivedDataPacketForMe(cMessage *msg);
@@ -66,7 +67,6 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         void manageReceivedRoutingPacket(cMessage *msg);
         std::pair<double,double> generateUniformCircleCoordinates(double radius, double gatewayX, double gatewayY);
         void sendJoinRequest();
-        void sendPacket();
         void sendDownMgmtPacket();
         void generateDataPackets();
         void sanitizeRoutingTable();
@@ -74,7 +74,11 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         int getBestRouteIndexTo(int destination);
         int getSFTo(int destination);
 
+        simtime_t calculateTransmissionDuration(cMessage *msg);
+
         bool sendPacketsContinuously;
+        bool enforceDutyCycle;
+        double dutyCycle;
         int numberOfDestinationsPerNode;
         int numberOfPacketsPerDestination;
 
@@ -109,17 +113,28 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         int forwardedDataPackets;
         int forwardedAckPackets;
         int lastSentMeasurement;
-        simtime_t timeToFirstPacket;
-        simtime_t timeToNextPacket;
+
         simtime_t timeToFirstRoutingPacket;
         simtime_t timeToNextRoutingPacket;
+        simtime_t timeToFirstDataPacket;
+        simtime_t timeToNextDataPacket;
+        simtime_t timeToNextForwardPacket;
+
+        simtime_t dutyCycleEnd;
+
+        simtime_t nextRoutingPacketTransmissionTime;
+        simtime_t nextDataPacketTransmissionTime;
+        simtime_t nextForwardPacketTransmissionTime;
+
+        bool dataPacketsDue;
+        bool routingPacketsDue;
 
         simtime_t firstDataPacketReceptionTime;
         simtime_t lastDataPacketReceptionTime;
 
         cMessage *configureLoRaParameters;
-        cMessage *selfDataPacket;
-        cMessage *selfRoutingPacket;
+        cMessage *selfPacket;
+
 
         //history of sent packets;
         cOutVector txSfVector;
@@ -142,6 +157,10 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         //General network variables
         int numberOfNodes;
 
+        //Packet sizes
+        int dataPacketSize;
+        int routingPacketMaxSize;
+
         //Routing variables
         int routingMetric;
         bool routeDiscovery;
@@ -149,6 +168,7 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         bool storeBestRoutesOnly;
         bool getRoutesFromDataPackets;
 
+        double routingPacketPriority;
         double ownDataPriority;
         int packetTTL;
 

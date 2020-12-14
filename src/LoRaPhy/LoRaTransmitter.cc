@@ -62,6 +62,7 @@ const ITransmission *LoRaTransmitter::createTransmission(const IRadio *transmitt
     TransmissionRequest *controlInfo = dynamic_cast<TransmissionRequest *>(macFrame->getControlInfo());
     //W transmissionPower = controlInfo && !std::isnan(controlInfo->getPower().get()) ? controlInfo->getPower() : power;
     bps transmissionBitrate = controlInfo && !std::isnan(controlInfo->getBitrate().get()) ? controlInfo->getBitrate() : bitrate;
+
     const_cast<LoRaTransmitter* >(this)->emit(LoRaTransmissionCreated, true);
     const LoRaMacFrame *frame = check_and_cast<const LoRaMacFrame *>(macFrame);
 
@@ -73,6 +74,11 @@ const ITransmission *LoRaTransmitter::createTransmission(const IRadio *transmitt
     int payloadBytes = 0;
     if(iAmGateway) payloadBytes = 15;
     else payloadBytes = 20;
+    // Use the actual payload size
+    if (frame->getByteLength() >= 0 ) {
+        payloadBytes = frame->getByteLength();
+    }
+
     int payloadSymbNb = 8 + math::max(ceil((8*payloadBytes - 4*frame->getLoRaSF() + 28 + 16 - 20*0)/(4*(frame->getLoRaSF()-2*0)))*(frame->getLoRaCR() + 4), 0);
 
     simtime_t Theader = 0.5 * (8+payloadSymbNb) * Tsym / 1000;
@@ -80,6 +86,9 @@ const ITransmission *LoRaTransmitter::createTransmission(const IRadio *transmitt
 
     const simtime_t duration = Tpreamble + Theader + Tpayload;
     const simtime_t endTime = startTime + duration;
+
+    EV << "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB " << duration << endl;
+
     IMobility *mobility = transmitter->getAntenna()->getMobility();
     const Coord startPosition = mobility->getCurrentPosition();
     const Coord endPosition = mobility->getCurrentPosition();

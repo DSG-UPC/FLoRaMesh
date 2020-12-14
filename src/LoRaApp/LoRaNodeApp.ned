@@ -24,8 +24,8 @@ simple LoRaNodeApp
         @signal[LoRa_AppPacketSent](type=long); // optional
         @statistic[LoRa_AppPacketSent](source=LoRa_AppPacketSent; record=count);
         int numberOfPacketsToForward = default(0);
-        volatile double timeToFirstPacket @unit(s) = default(10s);
-        volatile double timeToNextPacket @unit(s) = default(10s);
+        volatile double timeToFirstDataPacket @unit(s) = default(10s);
+        volatile double timeToNextDataPacket @unit(s) = default(10s);
         volatile double timeToFirstRoutingPacket @unit(s) = default(10s);
         volatile double timeToNextRoutingPacket @unit(s) = default(10s);
         double initialLoRaTP @unit(dBm) = default(14dBm);
@@ -45,7 +45,7 @@ simple LoRaNodeApp
         bool routeDiscovery = default(true);
         double ownDataPriority = default(1);
         int packetTTL = default(1);
-        int routingPacketPriority = default(0.5);
+        double routingPacketPriority = default(0.5);
         bool storeBestRouteOnly = default(false);
         bool getRoutesFromDataPackets = default(true);
         volatile double routeTimeout @unit(s) = default(60s);
@@ -56,8 +56,12 @@ simple LoRaNodeApp
         int packetsPerSF = default(1);
         int packetsInSF = default(0);
         bool sendPacketsContinuously = default(false);
+        bool enforceDutyCycle = default(true);
+        double dutyCycle = default(0.01);
         int numberOfDestinationsPerNode = default(1);
         int numberOfPacketsPerDestination = default(1);
+        int dataPacketDefaultSize @unit(B) = default(50B);
+        int routingPacketMaxSize @unit(B) = default(16B);
     gates:
         output appOut @labels(LoRaAppPacket/down);
         input appIn @labels(LoRaAppPacket/up);

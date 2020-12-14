@@ -122,7 +122,12 @@ void LoRaNodeApp::initialize(int stage) {
         firstDataPacketReceptionTime = 0;
         lastDataPacketReceptionTime = 0;
 
+        dataPacketsDue = false;
+        routingPacketsDue = false;
+
         sendPacketsContinuously = par("sendPacketsContinuously");
+        enforceDutyCycle = par("enforceDutyCycle");
+        dutyCycle = par("dutyCycle");
         numberOfDestinationsPerNode = par("numberOfDestinationsPerNode");
         numberOfPacketsPerDestination = par("numberOfPacketsPerDestination");
 
@@ -156,11 +161,16 @@ void LoRaNodeApp::initialize(int stage) {
         //Routing variables
         routingMetric = par("routingMetric");
         routeDiscovery = par("routeDiscovery");
+        routingPacketPriority = par("routingPacketPriority");
         ownDataPriority = par("ownDataPriority");
         routeTimeout = par("routeTimeout");
         storeBestRoutesOnly = par("storeBestRouteOnly");
         getRoutesFromDataPackets = par("getRoutesFromDataPackets");
         packetTTL = par("packetTTL");
+
+        //Packet sizes
+        dataPacketSize = par("dataPacketDefaultSize");
+        routingPacketMaxSize = par("routingPacketMaxSize");
 
         neighbourNodes = {};
         knownNodes = {};
@@ -243,33 +253,56 @@ void LoRaNodeApp::initialize(int stage) {
 
         generateDataPackets();
 
-        // Initialize timers
-        timeToFirstPacket = math::max(5, par("timeToFirstPacket"));
+        // Routing packets timer
         timeToFirstRoutingPacket = math::max(5, par("timeToFirstRoutingPacket"));
-        EV << "Time to first data packet: " << timeToFirstPacket << endl;
-        EV << "Time to first routing packet: " << timeToFirstRoutingPacket << endl;
-
-        // Timer for sending local data packets or forwarding them
-        selfDataPacket = new cMessage("selfDataPacket");
-        scheduleAt(simTime() + timeToFirstPacket, selfDataPacket);
-
-        // Timer for sending routing protocol packets
-        selfRoutingPacket = new cMessage("selfRoutingPacket");
         switch (routingMetric) {
-            // Do not generate selfRoutingPackets as no routing packets need to be sent
+            // No routing packets are to be sent
             case NO_FORWARDING:
             case DUMMY_BROADCAST_SINGLE_SF:
             case SMART_BROADCAST_SINGLE_SF:
                 break;
             // Schedule selfRoutingPackets
             default:
-                scheduleAt(simTime() + timeToFirstRoutingPacket, selfRoutingPacket);
+                routingPacketsDue = true;
+                EV << "Time to first routing packet: " << timeToFirstRoutingPacket << endl;
+                break;
         }
+
+        // Data packets timer
+        timeToFirstDataPacket = math::max(5, par("timeToFirstDataPacket"));
+        if (LoRaPacketsToSend.size() > 0) {
+                    dataPacketsDue = true;
+                    EV << "Time to first data packet: " << timeToFirstDataPacket << endl;
+        }
+
+        selfPacket = new cMessage("selfPacket");
+
+        if (dataPacketsDue || routingPacketsDue) {
+
+            if (dataPacketsDue && !routingPacketsDue) {
+                scheduleAt(simTime() + timeToFirstDataPacket, selfPacket);
+                EV << "Self packet triggered by due data packet" << endl;
+            }
+            else if (routingPacketsDue && !dataPacketsDue) {
+                scheduleAt(simTime() + timeToFirstRoutingPacket, selfPacket);
+                EV << "Self packet triggered by due routing packet" << endl;
+            }
+            else if (timeToFirstDataPacket < timeToFirstRoutingPacket) {
+                scheduleAt(simTime() + timeToFirstDataPacket, selfPacket);
+                EV << "Self packet triggered by due data packet before due routing packet" << endl;
+            }
+            else {
+                scheduleAt(simTime() + timeToFirstRoutingPacket, selfPacket);
+                EV << "Self packet triggered by due routing packet before due data packet" << endl;
+            }
+        }
+
+        dutyCycleEnd = simTime();
     }
 }
 
 std::pair<double, double> LoRaNodeApp::generateUniformCircleCoordinates(
-        double radius, double gatewayX, double gatewayY) {
+    double radius, double gatewayX, double gatewayY) {
     double randomValueRadius = uniform(0, (radius * radius));
     double randomTheta = uniform(0, 2 * M_PI);
 
@@ -362,116 +395,163 @@ void LoRaNodeApp::finish() {
 void LoRaNodeApp::handleMessage(cMessage *msg) {
 
     if (msg->isSelfMessage()) {
-        if (msg == selfDataPacket) {
-            handleSelfDataPacket();
-        }
-        else if (msg == selfRoutingPacket) {
-            handleSelfRoutingPacket();
-        }
+        handleSelfMessage(msg);
     } else {
         handleMessageFromLowerLayer(msg);
     }
-
-    delete msg;
 }
 
 
-void LoRaNodeApp::handleSelfDataPacket() {
+void LoRaNodeApp::handleSelfMessage(cMessage *msg) {
 
-    LoRaMac *lrmc = (LoRaMac *)getParentModule()->getSubmodule("LoRaNic")->getSubmodule("mac");
+    //LoRaMac *lrmc = (LoRaMac *)getParentModule()->getSubmodule("LoRaNic")->getSubmodule("mac");
 
-    bool schedule = false;
+    simtime_t txDuration = 0;
+    simtime_t nextScheduleTime;
+    bool sendRouting = false;
+    bool sendData = false;
 
-    // Only proceed to send a data packet if the 'mac' module in 'LoRaNic' is IDLE and the warmup period is due
-    if ( (lrmc->fsm.getState() == IDLE
-// ToDo: check if all states are acceptable
-//            || lrmc->fsm.getState() == WAIT_DELAY_1 || lrmc->fsm.getState() == LISTENING_1 || lrmc->fsm.getState() == WAIT_DELAY_2 || lrmc->fsm.getState() == LISTENING_2
-            ) && simTime() >= getSimulation()->getWarmupPeriod() ) {
+    // Check if there are routing packets to send
+    if ( routingPacketsDue && simTime() >= nextRoutingPacketTransmissionTime ) {
+        sendRouting = true;
+    }
+    // Check if there are data packets to send or forward, and if it is time to send them
+    if ( (LoRaPacketsToSend.size() > 0 || LoRaPacketsToForward.size() > 0 ) && simTime() >= nextDataPacketTransmissionTime ) {
+        sendData = true;
+    }
 
-        // Generate more packets if needed
-        if (sendPacketsContinuously && LoRaPacketsToSend.size() == 0){
-            generateDataPackets();
+    // If both types of packets are pending, decide which one will be sent
+    if (sendRouting && sendData) {
+        // Either send a routing packet...
+        if (bernoulli(routingPacketPriority)) {
+            sendData = false;
         }
-
-        // Check conditions for sending own data packet
-        if (LoRaPacketsToSend.size() > 0)  // || sentPackets < numberOfPacketsToSend) && (!AppACKReceived || !stopOnACK))
-        {
-            sendPacket();
-            schedule = true;
-        }
-        // Check conditions for forwarding own data packet
-        else if (forwardedPackets < numberOfPacketsToForward
-                || numberOfPacketsToForward == 0) {
-            // Only go to the sendDataPacket() function if there is something to be forwarded
-            if (LoRaPacketsToForward.size() > 0)
-                sendPacket();
-            // Schedule a self-message, since we have room for forwarding
-            schedule = true;
+        else {
+            sendRouting = false;
         }
     }
+
+    // Send routing packet
+    if (sendRouting) {
+        txDuration = sendRoutingPacket();
+        if (enforceDutyCycle) {
+            // Update duty cycle end
+            dutyCycleEnd = simTime() + txDuration/dutyCycle;
+            // Update next routing packet transmission time, taking the duty cycle into account
+            nextRoutingPacketTransmissionTime = simTime() + math::max(timeToNextRoutingPacket.dbl(), txDuration.dbl()/dutyCycle);
+        }
+        else {
+            // Update next routing packet transmission time
+            nextRoutingPacketTransmissionTime = simTime() + timeToNextRoutingPacket;
+        }
+    }
+
+    // Send or forward data packet
+    else if (sendData) {
+        txDuration = sendDataPacket();
+        if (enforceDutyCycle) {
+            // Update duty cycle end
+            dutyCycleEnd = simTime() + txDuration/dutyCycle;
+            // Update next routing packet transmission time, taking the duty cycle into account
+            nextDataPacketTransmissionTime = simTime() + math::max(timeToNextDataPacket.dbl(), txDuration.dbl()/dutyCycle);
+        }
+        else {
+            // Update next routing packet transmission time
+            nextDataPacketTransmissionTime = simTime() + timeToNextDataPacket;
+        }
+        if ( LoRaPacketsToSend.size() > 0 || LoRaPacketsToForward.size() > 0 ) {
+            dataPacketsDue = true;
+        }
+        else {
+            dataPacketsDue = false;
+        }
+    }
+
+    // Schedule selfPacket to whatever is to happen sooner, either routing packet transmission...
+    if (nextRoutingPacketTransmissionTime < nextDataPacketTransmissionTime) {
+        nextScheduleTime = nextRoutingPacketTransmissionTime;
+    }
+    // ... or data packet transmission, ...
     else {
-        schedule = true;
+        nextScheduleTime = nextDataPacketTransmissionTime;
+    }
+    // ... taking duty cycle into account.
+    if (enforceDutyCycle) {
+        nextScheduleTime = math::max(nextScheduleTime.dbl(), dutyCycleEnd.dbl());
     }
 
-    // Schedule the next self-message
-        if (schedule) {
-            double time;
-            if (loRaSF == 7)
-                time = 7.808;
-            if (loRaSF == 8)
-                time = 13.9776;
-            if (loRaSF == 9)
-                time = 24.6784;
-            if (loRaSF == 10)
-                time = 49.3568;
-            if (loRaSF == 11)
-                time = 85.6064;
-            if (loRaSF == 12)
-                time = 171.2128;
+    // Last, check the schedule time is in the future, otherwise add a 1s delay
+    if (nextScheduleTime <= simTime() ) {
+        nextScheduleTime = simTime() + 1;
+    }
 
-        do {
-            // Warning: too small a par("timeToNextPacket") causes a lock here.
-            // timeToNextPacket = par("timeToNextPacket");
-            //
-            // Workaround:
-            timeToNextPacket = math::max(time,
-                    par("timeToNextPacket"));
-        } while (timeToNextPacket <= time);
-
-        selfDataPacket = new cMessage("selfDataPacket");
-        scheduleAt(simTime() + timeToNextPacket, selfDataPacket);
+    if (routingPacketsDue || dataPacketsDue) {
+        scheduleAt(nextScheduleTime, selfPacket);
     }
 }
 
-void LoRaNodeApp::handleSelfRoutingPacket() {
-
-    LoRaMac *lrmc = (LoRaMac *)getParentModule()->getSubmodule("LoRaNic")->getSubmodule("mac");
-
-    // Only proceed to send a routing packet if the 'mac' module in 'LoRaNic' is IDLE
-    if ( lrmc->fsm.getState() == IDLE ) {
-        sendRoutingPacket();
-    }
-
-    double time;
-            if (loRaSF == 7)
-                time = 7.808;
-            if (loRaSF == 8)
-                time = 13.9776;
-            if (loRaSF == 9)
-                time = 24.6784;
-            if (loRaSF == 10)
-                time = 49.3568;
-            if (loRaSF == 11)
-                time = 85.6064;
-            if (loRaSF == 12)
-                time = 171.2128;
-
-    selfRoutingPacket = new cMessage("selfRoutingPacket");
-    timeToNextPacket = math::max(time, par("timeToNextRoutingPacket"));
-
-    scheduleAt(simTime() + timeToNextPacket, selfRoutingPacket);
-}
-
+//
+//void LoRaNodeApp::handleSelfDataPacket() {
+//
+//    LoRaMac *lrmc = (LoRaMac *)getParentModule()->getSubmodule("LoRaNic")->getSubmodule("mac");
+//
+//    bool schedule = false;
+//    simtime_t txDuration = 0;
+//
+//    // Only proceed to send a data packet if the 'mac' module in 'LoRaNic' is IDLE and the warmup period is due
+//    if ( (lrmc->fsm.getState() == IDLE
+//// ToDo: check if all states are acceptable
+////            || lrmc->fsm.getState() == WAIT_DELAY_1 || lrmc->fsm.getState() == LISTENING_1 || lrmc->fsm.getState() == WAIT_DELAY_2 || lrmc->fsm.getState() == LISTENING_2
+//            ) && simTime() >= getSimulation()->getWarmupPeriod() ) {
+//
+//        // Generate more packets if needed
+//        if (sendPacketsContinuously && LoRaPacketsToSend.size() == 0){
+//            generateDataPackets();
+//        }
+//
+//        // Check conditions for sending own data packet
+//        if (LoRaPacketsToSend.size() > 0)  // || sentPackets < numberOfPacketsToSend) && (!AppACKReceived || !stopOnACK))
+//        {
+//            txDuration = sendPacket();
+//            schedule = true;
+//        }
+//        // Check conditions for forwarding own data packet
+//        else if (forwardedPackets < numberOfPacketsToForward
+//                || numberOfPacketsToForward == 0) {
+//            // Only go to the sendDataPacket() function if there is something to be forwarded
+//            if (LoRaPacketsToForward.size() > 0)
+//                txDuration = sendPacket();
+//            // Schedule a self-message, since we have room for forwarding
+//            schedule = true;
+//        }
+//    }
+//    else {
+//        schedule = true;
+//    }
+//
+//    if (schedule) {
+////        double time;
+////        if (loRaSF == 7)
+////            time = 7.808;
+////        if (loRaSF == 8)
+////            time = 13.9776;
+////        if (loRaSF == 9)
+////            time = 24.6784;
+////        if (loRaSF == 10)
+////            time = 49.3568;
+////        if (loRaSF == 11)
+////            time = 85.6064;
+////        if (loRaSF == 12)
+////            time = 171.2128;
+//
+//        if (enforceDutyCycle) {
+//            txDuration = txDuration/dutyCycle;
+//        }
+//
+//        selfDataPacket = new cMessage("selfDataPacket");
+//        scheduleAt(simTime() + txDuration + 0.0000000001, selfDataPacket);
+//    }
+//}
 
 void LoRaNodeApp::handleMessageFromLowerLayer(cMessage *msg) {
     receivedPackets++;
@@ -519,7 +599,7 @@ void LoRaNodeApp::handleMessageFromLowerLayer(cMessage *msg) {
         }
     }
 
-    // *msg is deleted by parent handleMessage() function
+    delete msg;
 }
 
 void LoRaNodeApp::manageReceivedRoutingPacket(cMessage *msg) {
@@ -976,13 +1056,15 @@ bool LoRaNodeApp::handleOperationStage(LifecycleOperation *operation, int stage,
     return true;
 }
 
-void LoRaNodeApp::sendPacket() {
+simtime_t LoRaNodeApp::sendDataPacket() {
     LoRaAppPacket *dataPacket = new LoRaAppPacket("DataFrame");
 
     bool transmit = false;
+    simtime_t txDuration = 0;
 
     // Send local data packets with a configurable ownDataPriority priority over packets to forward, if there is any
-    if ((LoRaPacketsToSend.size() > 0 && bernoulli(ownDataPriority))
+    if (
+            (LoRaPacketsToSend.size() > 0 && bernoulli(ownDataPriority))
             || (LoRaPacketsToSend.size() > 0 && LoRaPacketsToForward.size() == 0)) {
 
         bubble("Sending a local data packet!");
@@ -1003,6 +1085,7 @@ void LoRaNodeApp::sendPacket() {
         dataPacket->setDestination(LoRaPacketsToSend.front().getDestination());
         dataPacket->setTtl(LoRaPacketsToSend.front().getTtl());
         dataPacket->getOptions().setAppACKReq(LoRaPacketsToSend.front().getOptions().getAppACKReq());
+        dataPacket->setByteLength(LoRaPacketsToSend.front().getByteLength());
 
         LoRaPacketsToSend.erase(LoRaPacketsToSend.begin());
 
@@ -1044,6 +1127,7 @@ void LoRaNodeApp::sendPacket() {
                 dataPacket->setDestination(LoRaPacketsToForward.front().getDestination());
                 dataPacket->setTtl(LoRaPacketsToForward.front().getTtl());
                 dataPacket->getOptions().setAppACKReq(LoRaPacketsToForward.front().getOptions().getAppACKReq());
+                dataPacket->setByteLength(LoRaPacketsToForward.front().getByteLength());
 
                 LoRaPacketsToForward.erase(LoRaPacketsToForward.begin());
 
@@ -1076,6 +1160,8 @@ void LoRaNodeApp::sendPacket() {
                     dataPacket->setDestination(LoRaPacketsToForward.front().getDestination());
                     dataPacket->setTtl(LoRaPacketsToForward.front().getTtl());
                     dataPacket->getOptions().setAppACKReq(LoRaPacketsToForward.front().getOptions().getAppACKReq());
+                    dataPacket->setByteLength(LoRaPacketsToForward.front().getByteLength());
+
                     LoRaPacketsToForward.erase(LoRaPacketsToForward.begin());
 
                     // Check that the packet has not been forwarded in the mean time, this should never occur
@@ -1144,6 +1230,8 @@ void LoRaNodeApp::sendPacket() {
 
         dataPacket->setControlInfo(cInfo);
 
+        txDuration = calculateTransmissionDuration(dataPacket);
+
         send(dataPacket, "appOut");
         txSfVector.record(loRaSF);
         txTpVector.record(loRaTP);
@@ -1152,11 +1240,15 @@ void LoRaNodeApp::sendPacket() {
     else {
         delete dataPacket;
     }
+
+    return txDuration;
 }
 
-void LoRaNodeApp::sendRoutingPacket() {
+simtime_t LoRaNodeApp::sendRoutingPacket() {
 
     bool transmit = false;
+    simtime_t txDuration = 0;
+
     LoRaAppPacket *routingPacket = new LoRaAppPacket("RoutingPacket");
 
     LoRaMacControlInfo *cInfo = new LoRaMacControlInfo;
@@ -1236,9 +1328,13 @@ void LoRaNodeApp::sendRoutingPacket() {
         routingPacket->setVia(nodeId);
         routingPacket->setDestination(BROADCAST_ADDRESS);
         routingPacket->getOptions().setAppACKReq(false);
+        routingPacket->setByteLength(routingPacketMaxSize);
 
         txSfVector.record(loRaSF);
         txTpVector.record(loRaTP);
+
+        txDuration = calculateTransmissionDuration(routingPacket);
+
         send(routingPacket, "appOut");
         bubble("Sending routing packet");
         emit(LoRa_AppPacketSent, loRaSF);
@@ -1246,57 +1342,61 @@ void LoRaNodeApp::sendRoutingPacket() {
     else {
         delete routingPacket;
     }
+    return txDuration;
 }
 
 void LoRaNodeApp::generateDataPackets() {
 
-    std::vector<int> destinations = { };
+    if (nodeId == 0) {
+        std::vector<int> destinations = { };
 
-    while (destinations.size() < numberOfDestinationsPerNode
-            && numberOfNodes - 1 - destinations.size() > 0) {
+        while (destinations.size() < numberOfDestinationsPerNode
+                && numberOfNodes - 1 - destinations.size() > 0) {
 
-        int destination = intuniform(0, numberOfNodes - 1);
+            int destination = intuniform(0, numberOfNodes - 1);
 
-        if (destination != nodeId) {
-            bool newDestination = true;
+            if (destination != nodeId) {
+                bool newDestination = true;
 
-            for (int i = 0; i < destinations.size(); i++) {
-                if (destination == destinations[i]) {
-                    newDestination = false;
-                    break;
+                for (int i = 0; i < destinations.size(); i++) {
+                    if (destination == destinations[i]) {
+                        newDestination = false;
+                        break;
+                    }
+                }
+
+                if (newDestination) {
+                    destinations.push_back(destination);
                 }
             }
-
-            if (newDestination) {
-                destinations.push_back(destination);
-            }
         }
-    }
 
-    for (int j = 0; j < destinations.size(); j++) {
-        for (int k = 0; k < numberOfPacketsPerDestination; k++) {
-            LoRaAppPacket *dataPacket = new LoRaAppPacket("DataPacket");
+        for (int j = 0; j < destinations.size(); j++) {
+            for (int k = 0; k < numberOfPacketsPerDestination; k++) {
+                LoRaAppPacket *dataPacket = new LoRaAppPacket("DataPacket");
 
-            dataPacket->setMsgType(DATA);
-            dataPacket->setDataInt(currDataInt+k);
-            dataPacket->setSource(nodeId);
-            dataPacket->setVia(nodeId);
-            dataPacket->setDestination(destinations[j]);
-            dataPacket->getOptions().setAppACKReq(requestACKfromApp);
+                dataPacket->setMsgType(DATA);
+                dataPacket->setDataInt(currDataInt+k);
+                dataPacket->setSource(nodeId);
+                dataPacket->setVia(nodeId);
+                dataPacket->setDestination(destinations[j]);
+                dataPacket->getOptions().setAppACKReq(requestACKfromApp);
+                dataPacket->setByteLength(dataPacketSize);
 
-            switch (routingMetric) {
-//            case 0:
-//                dataPacket->setTtl(1);
-//                break;
-            default:
-                dataPacket->setTtl(packetTTL);
-                break;
+                switch (routingMetric) {
+    //            case 0:
+    //                dataPacket->setTtl(1);
+    //                break;
+                default:
+                    dataPacket->setTtl(packetTTL);
+                    break;
+                }
+
+                LoRaPacketsToSend.push_back(*dataPacket);
+                delete dataPacket;
             }
-
-            LoRaPacketsToSend.push_back(*dataPacket);
-            delete dataPacket;
+            currDataInt++;
         }
-        currDataInt++;
     }
 }
 
@@ -1576,6 +1676,30 @@ int LoRaNodeApp::getSFTo(int destination) {
     }
 
     return minLoRaSF;
+}
+
+
+simtime_t LoRaNodeApp::calculateTransmissionDuration(cMessage *msg) {
+
+    TransmissionRequest *controlInfo = dynamic_cast<TransmissionRequest *>(msg->getControlInfo());
+
+    const LoRaAppPacket *frame = check_and_cast<const LoRaAppPacket *>(msg);
+    const LoRaMacControlInfo *cInfo = check_and_cast<const LoRaMacControlInfo *>(frame->getControlInfo());
+
+    int nPreamble = 8;
+    simtime_t Tsym = (pow(2, cInfo->getLoRaSF()))/(cInfo->getLoRaBW().get()/1000);
+    simtime_t Tpreamble = (nPreamble + 4.25) * Tsym / 1000;
+
+    int payloadBytes = frame->getByteLength()+8; //+8 bytes for headers
+
+    int payloadSymbNb = 8 + math::max(ceil((8*payloadBytes - 4*cInfo->getLoRaSF() + 28 + 16 - 20*0)/(4*(cInfo->getLoRaSF()-2*0)))*(cInfo->getLoRaCR() + 4), 0);
+
+    simtime_t Theader = 0.5 * (8+payloadSymbNb) * Tsym / 1000;
+    simtime_t Tpayload = 0.5 * (8+payloadSymbNb) * Tsym / 1000;
+
+    const simtime_t duration = Tpreamble + Theader + Tpayload;
+
+    return duration;
 }
 
 } //end namespace inet
