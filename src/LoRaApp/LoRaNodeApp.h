@@ -132,6 +132,8 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         simtime_t firstDataPacketReceptionTime;
         simtime_t lastDataPacketReceptionTime;
 
+        simtime_t simTimeResolution;
+
         cMessage *configureLoRaParameters;
         cMessage *selfPacket;
 

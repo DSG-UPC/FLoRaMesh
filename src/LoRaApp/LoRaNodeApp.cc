@@ -172,6 +172,12 @@ void LoRaNodeApp::initialize(int stage) {
         dataPacketSize = par("dataPacketDefaultSize");
         routingPacketMaxSize = par("routingPacketMaxSize");
 
+        // Packet timings
+        timeToNextDataPacket = par("timeToNextDataPacket");
+        timeToNextRoutingPacket = par("timeToNextRoutingPacket");
+
+        simTimeResolution = pow(10, simTimeResolution.getScaleExp());
+
         neighbourNodes = {};
         knownNodes = {};
         LoRaPacketsToSend = {};
@@ -264,6 +270,7 @@ void LoRaNodeApp::initialize(int stage) {
             // Schedule selfRoutingPackets
             default:
                 routingPacketsDue = true;
+                nextRoutingPacketTransmissionTime = timeToFirstRoutingPacket;
                 EV << "Time to first routing packet: " << timeToFirstRoutingPacket << endl;
                 break;
         }
@@ -272,6 +279,7 @@ void LoRaNodeApp::initialize(int stage) {
         timeToFirstDataPacket = math::max(5, par("timeToFirstDataPacket"));
         if (LoRaPacketsToSend.size() > 0) {
                     dataPacketsDue = true;
+                    nextDataPacketTransmissionTime = timeToFirstDataPacket;
                     EV << "Time to first data packet: " << timeToFirstDataPacket << endl;
         }
 
@@ -407,7 +415,7 @@ void LoRaNodeApp::handleSelfMessage(cMessage *msg) {
     //LoRaMac *lrmc = (LoRaMac *)getParentModule()->getSubmodule("LoRaNic")->getSubmodule("mac");
 
     simtime_t txDuration = 0;
-    simtime_t nextScheduleTime;
+    simtime_t nextScheduleTime = 0;
     bool sendRouting = false;
     bool sendData = false;
 
@@ -442,7 +450,7 @@ void LoRaNodeApp::handleSelfMessage(cMessage *msg) {
         }
         else {
             // Update next routing packet transmission time
-            nextRoutingPacketTransmissionTime = simTime() + timeToNextRoutingPacket;
+            nextRoutingPacketTransmissionTime = simTime() + math::max(timeToNextRoutingPacket.dbl(), txDuration.dbl());
         }
     }
 
@@ -457,7 +465,7 @@ void LoRaNodeApp::handleSelfMessage(cMessage *msg) {
         }
         else {
             // Update next routing packet transmission time
-            nextDataPacketTransmissionTime = simTime() + timeToNextDataPacket;
+            nextDataPacketTransmissionTime = simTime() + math::max(timeToNextDataPacket.dbl(), txDuration.dbl());
         }
         if ( LoRaPacketsToSend.size() > 0 || LoRaPacketsToForward.size() > 0 ) {
             dataPacketsDue = true;
@@ -468,25 +476,32 @@ void LoRaNodeApp::handleSelfMessage(cMessage *msg) {
     }
 
     // Schedule selfPacket to whatever is to happen sooner, either routing packet transmission...
-    if (nextRoutingPacketTransmissionTime < nextDataPacketTransmissionTime) {
-        nextScheduleTime = nextRoutingPacketTransmissionTime;
+    if (routingPacketsDue) {
+        nextScheduleTime = math::max(simTime().dbl(), nextRoutingPacketTransmissionTime.dbl());
     }
-    // ... or data packet transmission, ...
-    else {
-        nextScheduleTime = nextDataPacketTransmissionTime;
+
+    // ... or data packet transmission.
+    if (dataPacketsDue) {
+        if (nextScheduleTime==0 || (nextScheduleTime >= simTime() && nextDataPacketTransmissionTime < simTime())) {
+            nextScheduleTime = math::max(simTime().dbl(), nextDataPacketTransmissionTime.dbl());
+        }
     }
-    // ... taking duty cycle into account.
+
+    // Take the duty cycle into account
     if (enforceDutyCycle) {
         nextScheduleTime = math::max(nextScheduleTime.dbl(), dutyCycleEnd.dbl());
     }
 
-    // Last, check the schedule time is in the future, otherwise add a 1s delay
-    if (nextScheduleTime <= simTime() ) {
+    // Last, check the schedule time is in the future, otherwise just add a 1s delay
+    if (! (nextScheduleTime > simTime()) ) {
         nextScheduleTime = simTime() + 1;
     }
 
+    // Schedule a self message to send routing or data packets. Add a
+    // simulation time delta (i.e., a simtime-resolution unit) to avoid
+    // timing conflicts in the LoRaMac layer
     if (routingPacketsDue || dataPacketsDue) {
-        scheduleAt(nextScheduleTime, selfPacket);
+        scheduleAt(nextScheduleTime + 2*simTimeResolution, selfPacket);
     }
 }
 
@@ -1241,6 +1256,11 @@ simtime_t LoRaNodeApp::sendDataPacket() {
         delete dataPacket;
     }
 
+    // Generate more packets if needed
+    if (sendPacketsContinuously && LoRaPacketsToSend.size() == 0) {
+        generateDataPackets();
+    }
+
     return txDuration;
 }
 
@@ -1347,6 +1367,7 @@ simtime_t LoRaNodeApp::sendRoutingPacket() {
 
 void LoRaNodeApp::generateDataPackets() {
 
+    // if (true) {
     if (nodeId == 0) {
         std::vector<int> destinations = { };
 

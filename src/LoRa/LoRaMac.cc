@@ -435,10 +435,14 @@ void LoRaMac::sendAckFrame()
  */
 void LoRaMac::finishCurrentTransmission()
 {
-    scheduleAt(simTime() + waitDelay1Time, endDelay_1);
-    scheduleAt(simTime() + waitDelay1Time + listening1Time, endListening_1);
-    scheduleAt(simTime() + waitDelay1Time + listening1Time + waitDelay2Time, endDelay_2);
-    scheduleAt(simTime() + waitDelay1Time + listening1Time + waitDelay2Time + listening2Time, endListening_2);
+//    scheduleAt(simTime() + waitDelay1Time, endDelay_1);
+//    scheduleAt(simTime() + waitDelay1Time + listening1Time, endListening_1);
+//    scheduleAt(simTime() + waitDelay1Time + listening1Time + waitDelay2Time, endDelay_2);
+//    scheduleAt(simTime() + waitDelay1Time + listening1Time + waitDelay2Time + listening2Time, endListening_2);
+    scheduleAt(simTime(), endDelay_1);
+    scheduleAt(simTime(), endListening_1);
+    scheduleAt(simTime(), endDelay_2);
+    scheduleAt(simTime(), endListening_2);
     popTransmissionQueue();
 }
 

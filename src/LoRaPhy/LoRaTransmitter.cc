@@ -87,8 +87,6 @@ const ITransmission *LoRaTransmitter::createTransmission(const IRadio *transmitt
     const simtime_t duration = Tpreamble + Theader + Tpayload;
     const simtime_t endTime = startTime + duration;
 
-    EV << "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB " << duration << endl;
-
     IMobility *mobility = transmitter->getAntenna()->getMobility();
     const Coord startPosition = mobility->getCurrentPosition();
     const Coord endPosition = mobility->getCurrentPosition();
