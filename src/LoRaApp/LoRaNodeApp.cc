@@ -119,6 +119,8 @@ void LoRaNodeApp::initialize(int stage) {
         forwardedDataPackets = 0;
         forwardedAckPackets = 0;
 
+        firstDataPacketTransmissionTime = 0;
+        lastDataPacketTransmissionTime = 0;
         firstDataPacketReceptionTime = 0;
         lastDataPacketReceptionTime = 0;
 
@@ -245,6 +247,8 @@ void LoRaNodeApp::initialize(int stage) {
             WATCH_VECTOR(knownNodes);
             WATCH_VECTOR(ACKedNodes);
 
+            WATCH(firstDataPacketTransmissionTime);
+            WATCH(lastDataPacketTransmissionTime);
             WATCH(firstDataPacketReceptionTime);
             WATCH(lastDataPacketReceptionTime);
 
@@ -368,6 +372,8 @@ void LoRaNodeApp::finish() {
     recordScalar("forwardedDataPackets", forwardedDataPackets);
     recordScalar("forwardedAckPackets", forwardedAckPackets);
 
+    recordScalar("firstDataPacketTransmissionTime", firstDataPacketTransmissionTime);
+    recordScalar("lastDataPacketTransmissionTime", lastDataPacketTransmissionTime);
     recordScalar("firstDataPacketReceptionTime", firstDataPacketReceptionTime);
     recordScalar("lastDataPacketReceptionTime", lastDataPacketReceptionTime);
 
@@ -1107,6 +1113,9 @@ simtime_t LoRaNodeApp::sendDataPacket() {
         transmit = true;
 
         sentDataPackets++;
+        if (firstDataPacketTransmissionTime == 0)
+            firstDataPacketTransmissionTime = simTime();
+        lastDataPacketTransmissionTime = simTime();
     }
 
     // Forward other nodes' packets, if any
@@ -1719,7 +1728,6 @@ simtime_t LoRaNodeApp::calculateTransmissionDuration(cMessage *msg) {
     simtime_t Tpayload = 0.5 * (8+payloadSymbNb) * Tsym / 1000;
 
     const simtime_t duration = Tpreamble + Theader + Tpayload;
-
     return duration;
 }
 

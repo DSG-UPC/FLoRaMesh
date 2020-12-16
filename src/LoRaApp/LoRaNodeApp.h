@@ -129,6 +129,8 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         bool dataPacketsDue;
         bool routingPacketsDue;
 
+        simtime_t firstDataPacketTransmissionTime;
+        simtime_t lastDataPacketTransmissionTime;
         simtime_t firstDataPacketReceptionTime;
         simtime_t lastDataPacketReceptionTime;
 
