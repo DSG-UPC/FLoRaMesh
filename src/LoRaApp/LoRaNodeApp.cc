@@ -514,7 +514,7 @@ void LoRaNodeApp::handleSelfMessage(cMessage *msg) {
     // simulation time delta (i.e., a simtime-resolution unit) to avoid
     // timing conflicts in the LoRaMac layer
     if (routingPacketsDue || dataPacketsDue) {
-        scheduleAt(nextScheduleTime + 2*simTimeResolution, selfPacket);
+        scheduleAt(nextScheduleTime + 10*simTimeResolution, selfPacket);
     }
 }
 
