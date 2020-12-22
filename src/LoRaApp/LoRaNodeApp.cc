@@ -1414,8 +1414,8 @@ void LoRaNodeApp::generateDataPackets() {
             }
         }
 
-        for (int j = 0; j < destinations.size(); j++) {
-            for (int k = 0; k < numberOfPacketsPerDestination; k++) {
+        for (int k = 0; k < numberOfPacketsPerDestination; k++) {
+            for (int j = 0; j < destinations.size(); j++) {
                 LoRaAppPacket *dataPacket = new LoRaAppPacket("DataPacket");
 
                 dataPacket->setMsgType(DATA);
