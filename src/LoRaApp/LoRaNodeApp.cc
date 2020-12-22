@@ -137,7 +137,6 @@ void LoRaNodeApp::initialize(int stage) {
         numberOfPacketsPerDestination = par("numberOfPacketsPerDestination");
 
         numberOfPacketsToForward = par("numberOfPacketsToForward");
-        packetTTL = par("packetTTL");
 
         LoRa_AppPacketSent = registerSignal("LoRa_AppPacketSent");
 
@@ -169,6 +168,14 @@ void LoRaNodeApp::initialize(int stage) {
         storeBestRoutesOnly = par("storeBestRouteOnly");
         getRoutesFromDataPackets = par("getRoutesFromDataPackets");
         packetTTL = par("packetTTL");
+        if ( packetTTL == 0 ) {
+            if (strcmp(getContainingNode(this)->par("deploymentType").stringValue(), "grid") == 0) {
+                packetTTL = 2*(sqrt(numberOfNodes)-1);
+            }
+            else {
+                packetTTL = 2*(sqrt(numberOfNodes));
+            }
+        }
 
         //Packet sizes
         dataPacketSize = par("dataPacketDefaultSize");
