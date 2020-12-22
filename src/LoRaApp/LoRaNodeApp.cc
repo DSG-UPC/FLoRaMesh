@@ -37,6 +37,10 @@ Define_Module (LoRaNodeApp);
 
 void LoRaNodeApp::initialize(int stage) {
     cSimpleModule::initialize(stage);
+
+    //Current network settings
+    numberOfNodes = par("numberOfNodes");
+
     if (stage == INITSTAGE_LOCAL) {
         // Get this node's ID
         nodeId = getContainingNode(this)->getIndex();
@@ -65,13 +69,12 @@ void LoRaNodeApp::initialize(int stage) {
                     minX + maxX * (((nodeId + 1) % 4 / 2) % 2));
             mobility->par("initialY").setDoubleValue(
                     minY + maxY * (((nodeId) % 4 / 2) % 2));
-        } else if (strcmp(host->par("deploymentType").stringValue(), "grid")
-                == 0) {
+        } else if (strcmp(host->par("deploymentType").stringValue(), "grid") == 0) {
             int minX = host->par("minX");
             int sepX = host->par("sepX");
             int minY = host->par("minY");
             int sepY = host->par("sepY");
-            int cols = host->par("cols");
+            int cols = int(sqrt(numberOfNodes));
             StationaryMobility *mobility = check_and_cast<StationaryMobility *>(
                     host->getSubmodule("mobility"));
             mobility->par("initialX").setDoubleValue(
@@ -156,9 +159,6 @@ void LoRaNodeApp::initialize(int stage) {
         txTpVector.setName("Tx TP Vector");
         rxRssiVector.setName("Rx RSSI Vector");
         rxSfVector.setName("Rx SF Vector");
-
-        //Current network settings
-        numberOfNodes = par("numberOfNodes");
 
         //Routing variables
         routingMetric = par("routingMetric");
