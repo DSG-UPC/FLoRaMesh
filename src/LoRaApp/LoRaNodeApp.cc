@@ -268,6 +268,9 @@ void LoRaNodeApp::initialize(int stage) {
             WATCH_VECTOR(DataPacketsForMe);
         }
 
+        if (numberOfDestinationsPerNode == 0 ) {
+            numberOfDestinationsPerNode = numberOfNodes-1;
+        }
         generateDataPackets();
 
         // Routing packets timer
@@ -1383,9 +1386,12 @@ simtime_t LoRaNodeApp::sendRoutingPacket() {
 
 void LoRaNodeApp::generateDataPackets() {
 
-    // if (true) {
+    //if (true) {
     if (nodeId == 0) {
         std::vector<int> destinations = { };
+
+        if (numberOfDestinationsPerNode == 0 )
+            numberOfDestinationsPerNode = numberOfNodes-1;
 
         while (destinations.size() < numberOfDestinationsPerNode
                 && numberOfNodes - 1 - destinations.size() > 0) {
