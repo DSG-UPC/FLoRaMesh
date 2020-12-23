@@ -1386,8 +1386,8 @@ simtime_t LoRaNodeApp::sendRoutingPacket() {
 
 void LoRaNodeApp::generateDataPackets() {
 
-    //if (true) {
-    if (nodeId == 0) {
+    if (true) {
+    //if (nodeId == 0) {
         std::vector<int> destinations = { };
 
         if (numberOfDestinationsPerNode == 0 )
