@@ -491,17 +491,17 @@ void LoRaNodeApp::handleSelfMessage(cMessage *msg) {
         }
     }
 
-    // Schedule selfPacket to whatever is to happen sooner, either routing packet transmission...
-    if (routingPacketsDue) {
-        nextScheduleTime = math::max(simTime().dbl(), nextRoutingPacketTransmissionTime.dbl());
+    if (routingPacketsDue && dataPacketsDue) {
+        nextScheduleTime = math::max(simTime().dbl()+txDuration.dbl(), std::min(nextRoutingPacketTransmissionTime.dbl(), nextDataPacketTransmissionTime.dbl()));
+    }
+    else if (routingPacketsDue) {
+        nextScheduleTime = nextRoutingPacketTransmissionTime;
+    }
+    else if (dataPacketsDue) {
+        nextScheduleTime = nextDataPacketTransmissionTime;
     }
 
-    // ... or data packet transmission.
-    if (dataPacketsDue) {
-        if (nextScheduleTime==0 || (nextScheduleTime >= simTime() && nextDataPacketTransmissionTime < simTime())) {
-            nextScheduleTime = math::max(simTime().dbl(), nextDataPacketTransmissionTime.dbl());
-        }
-    }
+    nextScheduleTime = math::max(nextScheduleTime.dbl(), simTime().dbl()+txDuration.dbl());
 
     // Take the duty cycle into account
     if (enforceDutyCycle) {
