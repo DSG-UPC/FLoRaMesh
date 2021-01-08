@@ -62,4 +62,5 @@ packet LoRaAppPacket {
     int ttl;
     int via;
 	LoRaRoute routingTable[];
+	simtime_t departureTime;
 }

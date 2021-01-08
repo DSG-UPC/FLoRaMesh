@@ -171,9 +171,15 @@ void LoRaNodeApp::initialize(int stage) {
         if ( packetTTL == 0 ) {
             if (strcmp(getContainingNode(this)->par("deploymentType").stringValue(), "grid") == 0) {
                 packetTTL = 2*(sqrt(numberOfNodes)-1);
+                if (routingMetric != 0) {
+                    packetTTL = math::max(2,2*(sqrt(numberOfNodes)-1));
+                }
             }
             else {
                 packetTTL = 2*(sqrt(numberOfNodes));
+                if (routingMetric != 0) {
+                    packetTTL = math::max(2,2*(sqrt(numberOfNodes)-1));
+                }
             }
         }
 
@@ -414,6 +420,18 @@ void LoRaNodeApp::finish() {
             lbptr++) {
         DataPacketsForMe.erase(lbptr);
     }
+
+    recordScalar("dataPacketsForMeLatencyMax", dataPacketsForMeLatency.getMax());
+    recordScalar("dataPacketsForMeLatencyMean", dataPacketsForMeLatency.getMean());
+    recordScalar("dataPacketsForMeLatencyMin", dataPacketsForMeLatency.getMin());
+    recordScalar("dataPacketsForMeLatencyStdv", dataPacketsForMeLatency.getStddev());
+    recordScalar("dataPacketsForMeUniqueLatencyMax", dataPacketsForMeUniqueLatency.getMax());
+    recordScalar("dataPacketsForMeUniqueLatencyMean", dataPacketsForMeUniqueLatency.getMean());
+    recordScalar("dataPacketsForMeUniqueLatencyMin", dataPacketsForMeUniqueLatency.getMin());
+    recordScalar("dataPacketsForMeUniqueLatencyStdv", dataPacketsForMeUniqueLatency.getStddev());
+
+    dataPacketsForMeLatency.recordAs("dataPacketsForMeLatency");
+    dataPacketsForMeUniqueLatency.recordAs("dataPacketsForMeUniqueLatency");
 }
 
 void LoRaNodeApp::handleMessage(cMessage *msg) {
@@ -984,6 +1002,7 @@ void LoRaNodeApp::manageReceivedAckPacketToForward(cMessage *msg) {
 void LoRaNodeApp::manageReceivedDataPacketToForward(cMessage *msg) {
     receivedDataPackets++;
     receivedDataPacketsToForward++;
+    bool newPacketToForward = false;
 
     LoRaAppPacket *packet = check_and_cast<LoRaAppPacket *>(msg);
     LoRaAppPacket *dataPacket = packet->dup();
@@ -1007,6 +1026,7 @@ void LoRaNodeApp::manageReceivedDataPacketToForward(cMessage *msg) {
                 receivedDataPacketsToForwardUnique++;
                 dataPacket->setTtl(packet->getTtl() - 1);
                 LoRaPacketsToForward.push_back(*dataPacket);
+                newPacketToForward = true;
                 break;
 
             case HOP_COUNT_SINGLE_SF:
@@ -1029,12 +1049,28 @@ void LoRaNodeApp::manageReceivedDataPacketToForward(cMessage *msg) {
 
                         dataPacket->setTtl(packet->getTtl() - 1);
                         LoRaPacketsToForward.push_back(*dataPacket);
+                        newPacketToForward = true;
                     }
         }
 
     }
 
     delete dataPacket;
+
+    if (newPacketToForward && !selfPacket->isScheduled()) {
+
+        simtime_t nextScheduleTime = simTime() + 10*simTimeResolution;
+
+        if (enforceDutyCycle) {
+            nextScheduleTime = math::max(nextScheduleTime.dbl(), dutyCycleEnd.dbl());
+        }
+
+        if (! (nextScheduleTime > simTime()) ) {
+            nextScheduleTime = simTime() + 1;
+        }
+
+        scheduleAt(nextScheduleTime, selfPacket);
+    }
 }
 
 void LoRaNodeApp::manageReceivedPacketForMe(cMessage *msg) {
@@ -1062,10 +1098,12 @@ void LoRaNodeApp::manageReceivedDataPacketForMe(cMessage *msg) {
     receivedDataPacketsForMe++;
 
     LoRaAppPacket *packet = check_and_cast<LoRaAppPacket *>(msg);
+    dataPacketsForMeLatency.collect(simTime()-packet->getDepartureTime());
 
     if (isDataPacketForMeUnique(packet)) {
         DataPacketsForMe.push_back(*packet);
         receivedDataPacketsForMeUnique++;
+        dataPacketsForMeUniqueLatency.collect(simTime()-packet->getDepartureTime());
     }
 }
 
@@ -1117,6 +1155,7 @@ simtime_t LoRaNodeApp::sendDataPacket() {
         dataPacket->setTtl(LoRaPacketsToSend.front().getTtl());
         dataPacket->getOptions().setAppACKReq(LoRaPacketsToSend.front().getOptions().getAppACKReq());
         dataPacket->setByteLength(LoRaPacketsToSend.front().getByteLength());
+        dataPacket->setDepartureTime(simTime());
 
         LoRaPacketsToSend.erase(LoRaPacketsToSend.begin());
 
@@ -1162,6 +1201,7 @@ simtime_t LoRaNodeApp::sendDataPacket() {
                 dataPacket->setTtl(LoRaPacketsToForward.front().getTtl());
                 dataPacket->getOptions().setAppACKReq(LoRaPacketsToForward.front().getOptions().getAppACKReq());
                 dataPacket->setByteLength(LoRaPacketsToForward.front().getByteLength());
+                dataPacket->setDepartureTime(LoRaPacketsToForward.front().getDepartureTime());
 
                 LoRaPacketsToForward.erase(LoRaPacketsToForward.begin());
 
@@ -1195,6 +1235,7 @@ simtime_t LoRaNodeApp::sendDataPacket() {
                     dataPacket->setTtl(LoRaPacketsToForward.front().getTtl());
                     dataPacket->getOptions().setAppACKReq(LoRaPacketsToForward.front().getOptions().getAppACKReq());
                     dataPacket->setByteLength(LoRaPacketsToForward.front().getByteLength());
+                    dataPacket->setDepartureTime(LoRaPacketsToForward.front().getDepartureTime());
 
                     LoRaPacketsToForward.erase(LoRaPacketsToForward.begin());
 
@@ -1368,6 +1409,7 @@ simtime_t LoRaNodeApp::sendRoutingPacket() {
         routingPacket->setDestination(BROADCAST_ADDRESS);
         routingPacket->getOptions().setAppACKReq(false);
         routingPacket->setByteLength(routingPacketMaxSize);
+        routingPacket->setDepartureTime(simTime());
 
         txSfVector.record(loRaSF);
         txTpVector.record(loRaTP);
@@ -1425,6 +1467,7 @@ void LoRaNodeApp::generateDataPackets() {
                 dataPacket->setDestination(destinations[j]);
                 dataPacket->getOptions().setAppACKReq(requestACKfromApp);
                 dataPacket->setByteLength(dataPacketSize);
+                dataPacket->setDepartureTime(simTime());
 
                 switch (routingMetric) {
     //            case 0:

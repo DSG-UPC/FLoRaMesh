@@ -129,16 +129,24 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         bool dataPacketsDue;
         bool routingPacketsDue;
 
+        cHistogram allTxPacketsSFStats;
+        cHistogram routingTxPacketsSFStats;
+        cHistogram owndataTxPacketsSFStats;
+        cHistogram fwdTxPacketsSFStats;
+
+        cHistogram dataPacketsForMeLatency;
+        cHistogram dataPacketsForMeUniqueLatency;
+
         simtime_t firstDataPacketTransmissionTime;
         simtime_t lastDataPacketTransmissionTime;
         simtime_t firstDataPacketReceptionTime;
         simtime_t lastDataPacketReceptionTime;
 
+
         simtime_t simTimeResolution;
 
         cMessage *configureLoRaParameters;
         cMessage *selfPacket;
-
 
         //history of sent packets;
         cOutVector txSfVector;
