@@ -179,6 +179,7 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         simtime_t routeTimeout;
         bool storeBestRoutesOnly;
         bool getRoutesFromDataPackets;
+        simtime_t stopRoutingAfterDataDone;
 
         double routingPacketPriority;
         double ownDataPriority;

@@ -168,6 +168,8 @@ void LoRaNodeApp::initialize(int stage) {
         storeBestRoutesOnly = par("storeBestRouteOnly");
         getRoutesFromDataPackets = par("getRoutesFromDataPackets");
         packetTTL = par("packetTTL");
+        stopRoutingAfterDataDone = par("stopRoutingAfterDataDone");
+
         if ( packetTTL == 0 ) {
             if (strcmp(getContainingNode(this)->par("deploymentType").stringValue(), "grid") == 0) {
                 packetTTL = 2*(sqrt(numberOfNodes)-1);
@@ -537,6 +539,27 @@ void LoRaNodeApp::handleSelfMessage(cMessage *msg) {
     if (routingPacketsDue || dataPacketsDue) {
         scheduleAt(nextScheduleTime + 10*simTimeResolution, selfPacket);
     }
+
+    if (!sendPacketsContinuously && routingPacketsDue) {
+
+        bool allNodesDone = true;
+
+        for (int i=0; i<numberOfNodes; i++) {
+            LoRaNodeApp *lrndpp = (LoRaNodeApp *) getParentModule()->getParentModule()->getSubmodule("loRaNodes", i)->getSubmodule("LoRaNodeApp");
+            if ( !(lrndpp->lastDataPacketTransmissionTime > 0 && \
+                 lrndpp->lastDataPacketReceptionTime > 0 &&
+                 lrndpp->lastDataPacketTransmissionTime + stopRoutingAfterDataDone < simTime() && \
+                 lrndpp->lastDataPacketReceptionTime + stopRoutingAfterDataDone < simTime() )) {
+                allNodesDone = false;
+                break;
+            }
+
+            if (allNodesDone) {
+                routingPacketsDue = false;
+            }
+        }
+    }
+    EV << endl;
 }
 
 //
