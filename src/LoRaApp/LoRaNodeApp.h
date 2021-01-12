@@ -44,7 +44,7 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         virtual bool handleOperationStage(LifecycleOperation *operation, int stage, IDoneCallback *doneCallback) override;
         virtual bool isNeighbour(int neighbourId);
         virtual bool isRouteInSingleMetricRoutingTable(int id, int via);
-        virtual int  getRouteIndexInRouteInSingleMetricRoutingTable(int id, int via);
+        virtual int  getRouteIndexInSingleMetricRoutingTable(int id, int via);
         virtual bool isRouteInDualMetricRoutingTable(int id, int via, int sf);
         virtual int  getRouteIndexInDualMetricRoutingTable(int id, int via, int sf);
         virtual bool isKnownNode(int knownNodeId);
@@ -137,6 +137,8 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
 
         cHistogram dataPacketsForMeLatency;
         cHistogram dataPacketsForMeUniqueLatency;
+
+        cHistogram routingTableSize;
 
         simtime_t firstDataPacketTransmissionTime;
         simtime_t lastDataPacketTransmissionTime;
