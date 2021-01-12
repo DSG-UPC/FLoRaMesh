@@ -1679,7 +1679,7 @@ int LoRaNodeApp::getBestRouteIndexTo(int destination) {
                     }
                 }
             }
-            return bestRoute;
+            return getRouteIndexInSingleMetricRoutingTable(availableRoutes[bestRoute].id, availableRoutes[bestRoute].via);
         }
     }
     else if (dualMetricRoutingTable.size() > 0) {
@@ -1709,7 +1709,7 @@ int LoRaNodeApp::getBestRouteIndexTo(int destination) {
                 }
             }
             EV << "Best available route to " << destination << " is via " << availableRoutes[bestRoute].via << " with SF " << "availableRoutes[bestRoute].sf" << endl;
-            return bestRoute;
+            return getRouteIndexInDualMetricRoutingTable(availableRoutes[bestRoute].id, availableRoutes[bestRoute].via, availableRoutes[bestRoute].sf);;
         }
     }
 
