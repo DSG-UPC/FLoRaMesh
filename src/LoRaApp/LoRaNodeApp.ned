@@ -42,7 +42,7 @@ simple LoRaNodeApp
         bool evaluateADRinNode = default(false);
         int numberOfNodes;
         int routingMetric = default(0);
-        bool routeDiscovery = default(true);
+        bool routeDiscovery = default(false);
         double ownDataPriority = default(1);
         int packetTTL = default(1);
         double routingPacketPriority = default(0.5);

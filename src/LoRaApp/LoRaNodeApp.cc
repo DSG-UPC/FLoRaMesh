@@ -164,6 +164,12 @@ void LoRaNodeApp::initialize(int stage) {
         //Routing variables
         routingMetric = par("routingMetric");
         routeDiscovery = par("routeDiscovery");
+        // Route discovery must be enabled for broadcast forwarding
+        switch (routingMetric) {
+            case DUMMY_BROADCAST_SINGLE_SF:
+            case SMART_BROADCAST_SINGLE_SF:
+                routeDiscovery = true;
+        }
         routingPacketPriority = par("routingPacketPriority");
         ownDataPriority = par("ownDataPriority");
         routeTimeout = par("routeTimeout");
@@ -661,7 +667,17 @@ void LoRaNodeApp::handleMessageFromLowerLayer(cMessage *msg) {
     // Else it can be a data packet from and to other nodes...
     else {
         // which we may forward, if it is being broadcast
-        if (packet->getVia() == BROADCAST_ADDRESS) {
+        if (packet->getVia() == BROADCAST_ADDRESS && routeDiscovery == true) {
+            bubble("I received a multicast data packet to forward!");
+            manageReceivedDataPacketToForward(packet);
+            if (firstDataPacketReceptionTime == 0) {
+                firstDataPacketReceptionTime = simTime();
+            }
+            lastDataPacketReceptionTime = simTime();
+        }
+        // or unicast via this node
+        else if (packet->getVia() == nodeId) {
+            bubble("I received a unicast data packet to forward!");
             manageReceivedDataPacketToForward(packet);
             if (firstDataPacketReceptionTime == 0) {
                 firstDataPacketReceptionTime = simTime();
