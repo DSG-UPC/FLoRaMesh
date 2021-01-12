@@ -102,6 +102,7 @@ void LoRaNodeApp::initialize(int stage) {
         receivedPacketsForMe = 0;
         receivedPacketsFromMe = 0;
         receivedPacketsToForward = 0;
+        receivedRoutingPackets = 0;
         receivedDataPackets = 0;
         receivedDataPacketsForMe = 0;
         receivedDataPacketsForMeUnique = 0;
@@ -121,6 +122,7 @@ void LoRaNodeApp::initialize(int stage) {
         forwardedPackets = 0;
         forwardedDataPackets = 0;
         forwardedAckPackets = 0;
+        deletedRoutes = 0;
 
         firstDataPacketTransmissionTime = 0;
         lastDataPacketTransmissionTime = 0;
@@ -232,6 +234,7 @@ void LoRaNodeApp::initialize(int stage) {
             WATCH(receivedPacketsForMe);
             WATCH(receivedPacketsFromMe);
             WATCH(receivedPacketsToForward);
+            WATCH(receivedRoutingPackets);
             WATCH(receivedDataPackets);
             WATCH(receivedDataPacketsForMe);
             WATCH(receivedDataPacketsForMeUnique);
@@ -251,10 +254,11 @@ void LoRaNodeApp::initialize(int stage) {
             WATCH(forwardedPackets);
             WATCH(forwardedDataPackets);
             WATCH(forwardedAckPackets);
+            WATCH(deletedRoutes);
 
             WATCH(AppACKReceived);
             WATCH(firstACK);
-
+            WATCH(packetTTL);
             WATCH(loRaSF);
             WATCH(packetsInSF);
 
