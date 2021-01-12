@@ -44,6 +44,7 @@ simple LoRaNodeApp
         int routingMetric = default(0);
         bool routeDiscovery = default(false);
         double ownDataPriority = default(1);
+        int windowSize = default(10);
         int packetTTL = default(1);
         double routingPacketPriority = default(0.5);
         bool storeBestRouteOnly = default(false);
@@ -62,6 +63,7 @@ simple LoRaNodeApp
         int numberOfPacketsPerDestination = default(1);
         int dataPacketDefaultSize @unit(B) = default(50B);
         int routingPacketMaxSize @unit(B) = default(16B);
+        volatile double stopRoutingAfterDataDone @unit(s) = default(3600s);
     gates:
         output appOut @labels(LoRaAppPacket/down);
         input appIn @labels(LoRaAppPacket/up);

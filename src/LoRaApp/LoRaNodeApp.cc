@@ -178,6 +178,8 @@ void LoRaNodeApp::initialize(int stage) {
         packetTTL = par("packetTTL");
         stopRoutingAfterDataDone = par("stopRoutingAfterDataDone");
 
+        windowSize = std::min(32,(int)math::max(1,par("windowSize"))); //Must be an int between 1 and 32
+
         if ( packetTTL == 0 ) {
             if (strcmp(getContainingNode(this)->par("deploymentType").stringValue(), "grid") == 0) {
                 packetTTL = 2*(sqrt(numberOfNodes)-1);
@@ -569,7 +571,6 @@ void LoRaNodeApp::handleSelfMessage(cMessage *msg) {
             }
         }
     }
-    EV << endl;
 }
 
 //
@@ -654,6 +655,7 @@ void LoRaNodeApp::handleMessageFromLowerLayer(cMessage *msg) {
     // Else, check if the packet is for this node (i.e., a packet directly
     // received from the origin or relayed by a neighbour)
     else if (packet->getDestination() == nodeId) {
+        bubble("I received a data packet for me!");
         manageReceivedPacketForMe(packet);
         if (firstDataPacketReceptionTime == 0) {
             firstDataPacketReceptionTime = simTime();
@@ -878,11 +880,34 @@ void LoRaNodeApp::manageReceivedRoutingPacket(cMessage *msg) {
                     dualMetricRoute newNeighbour;
                     newNeighbour.id = packet->getSource();
                     newNeighbour.via = packet->getSource();
-                    newNeighbour.sf = packet->getOptions().getLoRaSF();
-                    newNeighbour.priMetric = 1;
-                    newNeighbour.secMetric = packet->getDataInt();
+                    newNeighbour.metric = 1;
+                    newNeighbour.window[0] = packet->getDataInt();
+                    // Fill window[1] and beyond, until windowSizeth element, with 0's
+                    for (int i = 1; i<windowSize; i++) {
+                        newNeighbour.window[i] = 0;
+                    }
                     newNeighbour.valid = simTime() + routeTimeout;
-                    dualMetricRoutingTable.push_back(newNeighbour);
+
+                    singleMetricRoutingTable.push_back(newNeighbour);
+                }
+                // or update route to new neighbour
+                else {
+                    int routeIndex = getRouteIndexInSingleMetricRoutingTable(packet->getSource(), packet->getSource());
+                    if (routeIndex >= 0) {
+                        int metric = 1;
+                        // Calculate the metric based on the window of previously received routing packets and update it
+                        for (int i=0; i<windowSize; i++) {
+                            metric = metric + (packet->getDataInt() - (singleMetricRoutingTable[routeIndex].window[i] + i+ 1));
+                        }
+                        singleMetricRoutingTable[routeIndex].metric = metric;
+                        singleMetricRoutingTable[routeIndex].valid = simTime() + routeTimeout;
+                        // Update the window
+                        for (int i=windowSize; i>0; i--) {
+                            singleMetricRoutingTable[routeIndex].window[i] = singleMetricRoutingTable[routeIndex].window[i-1];
+                        }
+                        singleMetricRoutingTable[routeIndex].window[0] = packet->getDataInt();
+                     }
+
                 }
 
                 for (int i = 0; i < packet->getRoutingTableArraySize(); i++) {

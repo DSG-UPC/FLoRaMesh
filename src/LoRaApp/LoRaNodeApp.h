@@ -113,6 +113,7 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         int forwardedDataPackets;
         int forwardedAckPackets;
         int lastSentMeasurement;
+        int deletedRoutes;
 
         simtime_t timeToFirstRoutingPacket;
         simtime_t timeToNextRoutingPacket;
@@ -176,6 +177,7 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         //Routing variables
         int routingMetric;
         bool routeDiscovery;
+        int windowSize;
         simtime_t routeTimeout;
         bool storeBestRoutesOnly;
         bool getRoutesFromDataPackets;
@@ -220,6 +222,7 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
                 int id;
                 int via;
                 double metric;
+                int window[33];
                 simtime_t valid;
         };
         std::vector<singleMetricRoute> singleMetricRoutingTable;
@@ -231,6 +234,7 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
                 int via;
                 double priMetric;
                 double secMetric;
+                int window[33];
                 int sf;
                 simtime_t valid;
         };
