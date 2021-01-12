@@ -30,8 +30,8 @@ namespace inet {
 #define RSSI_SUM_SINGLE_SF          4
 #define RSSI_PROD_SINGLE_SF         5
 #define ETX_SINGLE_SF               6
-#define TIME_ON_AIR_HC_CAD          7
-#define TIME_ON_AIR_SF_CAD          8
+#define TIME_ON_AIR_HC_CAD_SF      11
+#define TIME_ON_AIR_SF_CAD_SF      12
 
 Define_Module (LoRaNodeApp);
 
@@ -894,7 +894,7 @@ void LoRaNodeApp::manageReceivedRoutingPacket(cMessage *msg) {
 //                EV << "Routing table size: " << end(dualMetricRoutingTable) - begin(dualMetricRoutingTable) << endl;
                 break;
 
-            case TIME_ON_AIR_HC_CAD:
+            case TIME_ON_AIR_HC_CAD_SF:
                 bubble("Processing routing packet");
 
 //                EV << "Processing routing packet in node " << nodeId << endl;
@@ -943,7 +943,7 @@ void LoRaNodeApp::manageReceivedRoutingPacket(cMessage *msg) {
 //                EV << "Routing table size: " << end(dualMetricRoutingTable) - begin(dualMetricRoutingTable) << endl;
                 break;
 
-            case TIME_ON_AIR_SF_CAD:
+            case TIME_ON_AIR_SF_CAD_SF:
                 bubble("Processing routing packet");
 
 //                EV << "Processing routing packet in node " << nodeId << endl;
@@ -1056,8 +1056,8 @@ void LoRaNodeApp::manageReceivedDataPacketToForward(cMessage *msg) {
             case RSSI_SUM_SINGLE_SF:
             case RSSI_PROD_SINGLE_SF:
             case ETX_SINGLE_SF:
-            case TIME_ON_AIR_HC_CAD:
-            case TIME_ON_AIR_SF_CAD:
+            case TIME_ON_AIR_HC_CAD_SF:
+            case TIME_ON_AIR_SF_CAD_SF:
             default:
                 // Check if the packet has already been forwarded
                 if (isPacketForwarded(packet)) {
@@ -1240,8 +1240,8 @@ simtime_t LoRaNodeApp::sendDataPacket() {
             case RSSI_SUM_SINGLE_SF:
             case RSSI_PROD_SINGLE_SF:
             case ETX_SINGLE_SF:
-            case TIME_ON_AIR_HC_CAD:
-            case TIME_ON_AIR_SF_CAD:
+            case TIME_ON_AIR_HC_CAD_SF:
+            case TIME_ON_AIR_SF_CAD_SF:
             default:
                 while (LoRaPacketsToForward.size() > 0) {
 
@@ -1314,8 +1314,8 @@ simtime_t LoRaNodeApp::sendDataPacket() {
                     dataPacket->setVia(BROADCAST_ADDRESS);
                 }
                 break;
-            case TIME_ON_AIR_HC_CAD:
-            case TIME_ON_AIR_SF_CAD:
+            case TIME_ON_AIR_HC_CAD_SF:
+            case TIME_ON_AIR_SF_CAD_SF:
                 if ( routeIndex >= 0 ) {
                     dataPacket->setVia(dualMetricRoutingTable[routeIndex].via);
                     cInfo->setLoRaSF(dualMetricRoutingTable[routeIndex].sf);
@@ -1394,8 +1394,33 @@ simtime_t LoRaNodeApp::sendRoutingPacket() {
 
            break;
 
-        case TIME_ON_AIR_HC_CAD:
-        case TIME_ON_AIR_SF_CAD:
+            EV << "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA " << numberOfRoutes << " unique routes " << endl;
+
+            // Make room for numberOfRoutes routes
+            routingPacket->setRoutingTableArraySize(numberOfRoutes);
+
+            // Add the best route to each node
+            for (int i=0; i<numberOfNodes; i++) {
+                if (i != nodeId) {
+                    EV << "No route to node " << i << endl;
+                    if (getBestRouteIndexTo(i) >= 0) {
+
+                        EV << "Best route to node " << i << " has index " << getBestRouteIndexTo(i) << endl;
+                        EV << "Route with index #" << getBestRouteIndexTo(i) << " is to " << singleMetricRoutingTable[getBestRouteIndexTo(i)].id << " via " << singleMetricRoutingTable[getBestRouteIndexTo(i)].via << " with cost " << singleMetricRoutingTable[getBestRouteIndexTo(i)].metric << endl;
+                        LoRaRoute thisLoRaRoute;
+                        EV << i << " " << singleMetricRoutingTable[getBestRouteIndexTo(i)].id << endl;
+                        thisLoRaRoute.setId(singleMetricRoutingTable[getBestRouteIndexTo(i)].id);
+                        thisLoRaRoute.setPriMetric(singleMetricRoutingTable[getBestRouteIndexTo(i)].metric);
+                        routingPacket->setRoutingTable(numberOfRoutes-1, thisLoRaRoute);
+                        numberOfRoutes--;
+                    }
+                }
+            }
+
+            break;
+
+        case TIME_ON_AIR_HC_CAD_SF:
+        case TIME_ON_AIR_SF_CAD_SF:
             transmit = true;
 
             cInfo->setLoRaSF(pickCADSF());
