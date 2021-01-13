@@ -712,238 +712,138 @@ void LoRaNodeApp::manageReceivedRoutingPacket(cMessage *msg) {
 
         switch (routingMetric) {
 
+            // The node performs no forwarding
             case NO_FORWARDING:
                 bubble("Discarding routing packet as forwarding is disabled");
                 break;
 
+            // Forwarding is broadcast-based
             case DUMMY_BROADCAST_SINGLE_SF:
-                bubble("Discarding routing packet as forwarding is dummy broadcast");
-                break;
-
             case SMART_BROADCAST_SINGLE_SF:
-                bubble("Processing routing packet");
-
-                // Add route to new neighbour node...
-                if ( !isRouteInSingleMetricRoutingTable(packet->getSource(), packet->getSource())) {
-                    singleMetricRoute newNeighbour;
-                    newNeighbour.id = packet->getSource();
-                    newNeighbour.via = packet->getSource();
-                    newNeighbour.metric = 1;
-                    newNeighbour.valid = simTime() + routeTimeout;
-                    singleMetricRoutingTable.push_back(newNeighbour);
-                }
-
-                // or refresh route to new neighbour.
-                else {
-                    int routeIndex = getRouteIndexInSingleMetricRoutingTable(packet->getSource(), packet->getSource());
-                    if (routeIndex >= 0) {
-                        singleMetricRoutingTable[routeIndex].valid = simTime() + routeTimeout;
-                    }
-                }
+                bubble("Discarding routing packet as forwarding is broadcast-based");
                 break;
 
             case HOP_COUNT_SINGLE_SF:
-                bubble("Processing routing packet");
-
-                // Add route to new neighbour node...
-                if (!isRouteInSingleMetricRoutingTable(packet->getSource(), packet->getSource()) ) {
-                     singleMetricRoute newNeighbour;
-                         newNeighbour.id = packet->getSource();
-                         newNeighbour.via = packet->getSource();
-                         newNeighbour.metric = 1;
-                         newNeighbour.valid = simTime() + routeTimeout;
-                     singleMetricRoutingTable.push_back(newNeighbour);
-                }
-
-                // or refresh route to new neighbour.
-                else {
-                    int routeIndex = getRouteIndexInSingleMetricRoutingTable(packet->getSource(), packet->getSource());
-                    if (routeIndex >= 0) {
-                        singleMetricRoutingTable[routeIndex].valid = simTime() + routeTimeout;
-                     }
-                }
-
-                // Iterate the routes in the incoming packet.
-                for (int i = 0; i < packet->getRoutingTableArraySize(); i++) {
-                    LoRaRoute thisRoute = packet->getRoutingTable(i);
-
-                    if (thisRoute.getId() != nodeId) {
-                        // Add new route
-                        if (!isRouteInSingleMetricRoutingTable(thisRoute.getId(), packet->getSource())) {
-                            EV << "Adding route to node " << thisRoute.getId() << " via " << packet->getSource() << endl;
-                            singleMetricRoute newRoute;
-                            newRoute.id = thisRoute.getId();
-                            newRoute.via = packet->getSource();
-                            newRoute.metric = thisRoute.getPriMetric()+1;
-                            newRoute.valid = simTime() + routeTimeout;
-
-                            singleMetricRoutingTable.push_back(newRoute);
-                        }
-                        // Or update known one
-                        else {
-                            int routeIndex = getRouteIndexInSingleMetricRoutingTable(thisRoute.getId(), packet->getSource());
-                            if (routeIndex >= 0) {
-                                singleMetricRoutingTable[routeIndex].metric = thisRoute.getPriMetric()+1;
-                                singleMetricRoutingTable[routeIndex].valid = simTime() + routeTimeout;
-                            }
-                        }
-                    }
-                }
-
-                break;
-
             case RSSI_SUM_SINGLE_SF:
-                bubble("Processing routing packet");
-
-                if ( !isRouteInSingleMetricRoutingTable(packet->getSource(), packet->getSource())) {
-
-                     EV << "Adding neighbour " << packet->getSource() << endl;
-                     singleMetricRoute newNeighbour;
-                     newNeighbour.id = packet->getSource();
-                     newNeighbour.via = packet->getSource();
-                     newNeighbour.metric = std::abs(packet->getOptions().getRSSI());
-                     newNeighbour.valid = simTime() + routeTimeout;
-
-                     singleMetricRoutingTable.push_back(newNeighbour);
-                }
-
-                for (int i = 0; i < packet->getRoutingTableArraySize(); i++) {
-                    LoRaRoute thisRoute = packet->getRoutingTable(i);
-
-                    if (thisRoute.getId() != nodeId) {
-                        // Add new route
-                        if (!isRouteInSingleMetricRoutingTable(thisRoute.getId(), packet->getSource()) && thisRoute.getId() != nodeId) {
-                            EV << "Adding route to node " << thisRoute.getId() << " via " << packet->getSource() << endl;
-                            singleMetricRoute newRoute;
-                            newRoute.id = thisRoute.getId();
-                            newRoute.via = packet->getSource();
-                            newRoute.metric = thisRoute.getPriMetric()+std::abs(packet->getOptions().getRSSI());
-                            newRoute.valid = simTime() + routeTimeout;
-
-                            singleMetricRoutingTable.push_back(newRoute);
-                        }
-                        // Or update known one
-                        else {
-                            int routeIndex = getRouteIndexInSingleMetricRoutingTable(thisRoute.getId(), packet->getSource());
-                            if (routeIndex >= 0) {
-                                singleMetricRoutingTable[routeIndex].metric = thisRoute.getPriMetric()+std::abs(packet->getOptions().getRSSI());
-                                singleMetricRoutingTable[routeIndex].valid = simTime() + routeTimeout;
-                            }
-                        }
-                    }
-                }
-                break;
-
-
             case RSSI_PROD_SINGLE_SF:
-                bubble("Processing routing packet");
-
-                if ( !isRouteInSingleMetricRoutingTable(packet->getSource(), packet->getSource())) {
-
-                     singleMetricRoute newNeighbour;
-                     newNeighbour.id = packet->getSource();
-                     newNeighbour.via = packet->getSource();
-                     newNeighbour.metric = std::abs(packet->getOptions().getRSSI());
-                     newNeighbour.valid = simTime() + routeTimeout;
-
-                     singleMetricRoutingTable.push_back(newNeighbour);
-                }
-
-                for (int i = 0; i < packet->getRoutingTableArraySize(); i++) {
-                    LoRaRoute thisRoute = packet->getRoutingTable(i);
-
-                    if (thisRoute.getId() != nodeId) {
-                        // Add new route
-                        if (!isRouteInSingleMetricRoutingTable(thisRoute.getId(), packet->getSource())) {
-
-                            singleMetricRoute newRoute;
-                            newRoute.id = thisRoute.getId();
-                            newRoute.via = packet->getSource();
-                            newRoute.metric = thisRoute.getPriMetric()*std::abs(packet->getOptions().getRSSI());
-                            newRoute.valid = simTime() + routeTimeout;
-
-                            singleMetricRoutingTable.push_back(newRoute);
-                        }
-                        // Or update known one
-                        else {
-                            int routeIndex = getRouteIndexInSingleMetricRoutingTable(thisRoute.getId(), packet->getSource());
-                            if (routeIndex >= 0) {
-                                singleMetricRoutingTable[routeIndex].metric = thisRoute.getPriMetric()*std::abs(packet->getOptions().getRSSI());
-                                singleMetricRoutingTable[routeIndex].valid = simTime() + routeTimeout;
-                            }
-                        }
-                    }
-                }
-                break;
-
             case ETX_SINGLE_SF:
                 bubble("Processing routing packet");
 
                 // Add route to new neighbour node...
-                if ( !isRouteInSingleMetricRoutingTable(packet->getSource(), packet->getSource())) {
+                if (!isRouteInSingleMetricRoutingTable(packet->getSource(), packet->getSource()) ) {
+                    EV << "Adding neighbour " << packet->getSource() << endl;
                     singleMetricRoute newNeighbour;
-                    newNeighbour.id = packet->getSource();
-                    newNeighbour.via = packet->getSource();
-                    newNeighbour.metric = 1;
-                    newNeighbour.window[0] = packet->getDataInt();
-                    // Fill window[1] and beyond, until windowSizeth element, with 0's
-                    for (int i = 1; i<windowSize; i++) {
-                        newNeighbour.window[i] = 0;
-                    }
-                    newNeighbour.valid = simTime() + routeTimeout;
+                        newNeighbour.id = packet->getSource();
+                        newNeighbour.via = packet->getSource();
+                        newNeighbour.valid = simTime() + routeTimeout;
+                        switch (routingMetric) {
+                            case HOP_COUNT_SINGLE_SF:
+                                newNeighbour.metric = 1;
+                                break;
+                            case RSSI_SUM_SINGLE_SF:
+                            case RSSI_PROD_SINGLE_SF:
+                                newNeighbour.metric = std::abs(packet->getOptions().getRSSI());
+                                break;
+                            case ETX_SINGLE_SF:
+                                newNeighbour.metric = 1;
+                                newNeighbour.window[0] = packet->getDataInt();
+                                // Fill window[1] and beyond, until windowSizeth element, with 0's
+                                for (int i = 1; i<windowSize; i++) {
+                                    newNeighbour.window[i] = 0;
+                                }
+                                break;
+                        }
 
                     singleMetricRoutingTable.push_back(newNeighbour);
                 }
-                // or update route to new neighbour
+
+                // or refresh route to known neighbour.
                 else {
                     int routeIndex = getRouteIndexInSingleMetricRoutingTable(packet->getSource(), packet->getSource());
                     if (routeIndex >= 0) {
-                        int metric = 1;
-                        // Calculate the metric based on the window of previously received routing packets and update it
-                        for (int i=0; i<windowSize; i++) {
-                            metric = metric + (packet->getDataInt() - (singleMetricRoutingTable[routeIndex].window[i] + i+ 1));
-                        }
-                        singleMetricRoutingTable[routeIndex].metric = metric;
                         singleMetricRoutingTable[routeIndex].valid = simTime() + routeTimeout;
-                        // Update the window
-                        for (int i=windowSize; i>0; i--) {
-                            singleMetricRoutingTable[routeIndex].window[i] = singleMetricRoutingTable[routeIndex].window[i-1];
+                        // Besides the route validity time, each metric may need different things to be updated
+                        switch (routingMetric) {
+                            // RSSI may change over time (e.g., different Tx power, mobility...)
+                            case RSSI_SUM_SINGLE_SF:
+                            case RSSI_PROD_SINGLE_SF:
+                                singleMetricRoutingTable[routeIndex].metric = std::abs(packet->getOptions().getRSSI());
+                                break;
+                            // Metric must be recalculated and window must be updated
+                            case ETX_SINGLE_SF:
+                                int metric = 1;
+                                // Calculate the metric based on the window of previously received routing packets and update it
+                                for (int i=0; i<windowSize; i++) {
+                                    metric = metric + (packet->getDataInt() - (singleMetricRoutingTable[routeIndex].window[i] + i + 1));
+                                }
+                                singleMetricRoutingTable[routeIndex].metric = std::max(1, metric);
+                                // Update the window
+                                for (int i=windowSize; i>0; i--) {
+                                    singleMetricRoutingTable[routeIndex].window[i] = singleMetricRoutingTable[routeIndex].window[i-1];
+                                }
+                                singleMetricRoutingTable[routeIndex].window[0] = packet->getDataInt();
+                                break;
                         }
-                        singleMetricRoutingTable[routeIndex].window[0] = packet->getDataInt();
                      }
-
                 }
 
-                // Process the routes in the routing packet
+                // Iterate the routes in the incoming packet and add them to the routing table, or update them
                 for (int i = 0; i < packet->getRoutingTableArraySize(); i++) {
                     LoRaRoute thisRoute = packet->getRoutingTable(i);
 
-                    // Routes towards other nodes than local one
                     if (thisRoute.getId() != nodeId) {
-                        // Add new route...
+                        // Add new route
                         if (!isRouteInSingleMetricRoutingTable(thisRoute.getId(), packet->getSource())) {
-                            int viaIndex = getRouteIndexInSingleMetricRoutingTable(packet->getSource(), packet->getSource());
                             EV << "Adding route to node " << thisRoute.getId() << " via " << packet->getSource() << endl;
+
                             singleMetricRoute newRoute;
                             newRoute.id = thisRoute.getId();
                             newRoute.via = packet->getSource();
-                            newRoute.metric = singleMetricRoutingTable[viaIndex].metric + thisRoute.getPriMetric();
                             newRoute.valid = simTime() + routeTimeout;
+                            switch(routingMetric) {
+                            case HOP_COUNT_SINGLE_SF:
+                                newRoute.metric = thisRoute.getPriMetric()+1;
+                                break;
+                            case RSSI_SUM_SINGLE_SF:
+                                newRoute.metric = thisRoute.getPriMetric()+std::abs(packet->getOptions().getRSSI());
+                                break;
+                            case RSSI_PROD_SINGLE_SF:
+                                newRoute.metric = thisRoute.getPriMetric()*std::abs(packet->getOptions().getRSSI());
+                                break;
+                            case ETX_SINGLE_SF:
+                                newRoute.metric = \
+                                    singleMetricRoutingTable[getRouteIndexInSingleMetricRoutingTable(packet->getSource(), packet->getSource())].metric \
+                                    + thisRoute.getPriMetric();
+                                break;
+                            }
 
                             singleMetricRoutingTable.push_back(newRoute);
                         }
-                        // or update known one
+                        // Or update known one
                         else {
                             int routeIndex = getRouteIndexInSingleMetricRoutingTable(thisRoute.getId(), packet->getSource());
                             if (routeIndex >= 0) {
-                                singleMetricRoutingTable[routeIndex].metric = thisRoute.getPriMetric()+1;
+                                switch (routingMetric) {
+                                    case HOP_COUNT_SINGLE_SF:
+                                        singleMetricRoutingTable[routeIndex].metric = thisRoute.getPriMetric()+1;
+                                        break;
+                                    case RSSI_SUM_SINGLE_SF:
+                                        singleMetricRoutingTable[routeIndex].metric = thisRoute.getPriMetric()+std::abs(packet->getOptions().getRSSI());
+                                        break;
+                                    case RSSI_PROD_SINGLE_SF:
+                                        singleMetricRoutingTable[routeIndex].metric = thisRoute.getPriMetric()*std::abs(packet->getOptions().getRSSI());
+                                        break;
+                                    case ETX_SINGLE_SF:
+                                        singleMetricRoutingTable[routeIndex].metric = \
+                                            singleMetricRoutingTable[getRouteIndexInSingleMetricRoutingTable(packet->getSource(), packet->getSource())].metric \
+                                            + thisRoute.getPriMetric();
+                                        break;
+                                }
                                 singleMetricRoutingTable[routeIndex].valid = simTime() + routeTimeout;
                             }
                         }
                     }
                 }
-
-                EV << "Routing table size: " << end(singleMetricRoutingTable) - begin(singleMetricRoutingTable) << endl;
                 break;
 
             case TIME_ON_AIR_HC_CAD_SF:
