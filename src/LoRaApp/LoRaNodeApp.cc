@@ -199,9 +199,15 @@ void LoRaNodeApp::initialize(int stage) {
         dataPacketSize = par("dataPacketDefaultSize");
         routingPacketMaxSize = par("routingPacketMaxSize");
 
-        // Packet timings
-        timeToNextDataPacket = par("timeToNextDataPacket");
-        timeToNextRoutingPacket = par("timeToNextRoutingPacket");
+        // Data packets timing
+        timeToNextDataPacketMin = par("timeToNextDataPacketMin");
+        timeToNextDataPacketMax = par("timeToNextDataPacketMax");
+        timeToNextDataPacketAvg = par("timeToNextDataPacketAvg");
+
+        // Routing packets timing
+        timeToNextRoutingPacketMin = par("timeToNextRoutingPacketMin");
+        timeToNextRoutingPacketMax = par("timeToNextRoutingPacketMax");
+        timeToNextRoutingPacketAvg = par("timeToNextRoutingPacketAvg");
 
         simTimeResolution = pow(10, simTimeResolution.getScaleExp());
 
@@ -495,11 +501,11 @@ void LoRaNodeApp::handleSelfMessage(cMessage *msg) {
             // Update duty cycle end
             dutyCycleEnd = simTime() + txDuration/dutyCycle;
             // Update next routing packet transmission time, taking the duty cycle into account
-            nextRoutingPacketTransmissionTime = simTime() + math::max(timeToNextRoutingPacket.dbl(), txDuration.dbl()/dutyCycle);
+            nextRoutingPacketTransmissionTime = simTime() + math::max(getTimeToNextRoutingPacket().dbl(), txDuration.dbl()/dutyCycle);
         }
         else {
             // Update next routing packet transmission time
-            nextRoutingPacketTransmissionTime = simTime() + math::max(timeToNextRoutingPacket.dbl(), txDuration.dbl());
+            nextRoutingPacketTransmissionTime = simTime() + math::max(getTimeToNextRoutingPacket().dbl(), txDuration.dbl());
         }
     }
 
@@ -510,11 +516,11 @@ void LoRaNodeApp::handleSelfMessage(cMessage *msg) {
             // Update duty cycle end
             dutyCycleEnd = simTime() + txDuration/dutyCycle;
             // Update next routing packet transmission time, taking the duty cycle into account
-            nextDataPacketTransmissionTime = simTime() + math::max(timeToNextDataPacket.dbl(), txDuration.dbl()/dutyCycle);
+            nextDataPacketTransmissionTime = simTime() + math::max(getTimeToNextDataPacket().dbl(), txDuration.dbl()/dutyCycle);
         }
         else {
             // Update next routing packet transmission time
-            nextDataPacketTransmissionTime = simTime() + math::max(timeToNextDataPacket.dbl(), txDuration.dbl());
+            nextDataPacketTransmissionTime = simTime() + math::max(getTimeToNextDataPacket().dbl(), txDuration.dbl());
         }
         if ( LoRaPacketsToSend.size() > 0 || LoRaPacketsToForward.size() > 0 ) {
             dataPacketsDue = true;
@@ -1786,6 +1792,31 @@ simtime_t LoRaNodeApp::calculateTransmissionDuration(cMessage *msg) {
     const simtime_t duration = Tpreamble + Theader + Tpayload;
     return duration;
 }
+
+simtime_t LoRaNodeApp::getTimeToNextRoutingPacket() {
+    if ( strcmp(par("timeToNextRoutingPacketDist").stringValue(), "uniform") == 0) {
+        simtime_t routingTime = uniform(timeToNextRoutingPacketMin, timeToNextRoutingPacketMax);
+        return routingTime;
+    }
+    else if ( strcmp(par("timeToNextRoutingPacketDist").stringValue(), "exponential") == 0) {
+        simtime_t routingTime = exponential(timeToNextRoutingPacketAvg);
+        return routingTime;
+    }
+    return simTime();
+}
+
+simtime_t LoRaNodeApp::getTimeToNextDataPacket() {
+    if ( strcmp(par("timeToNextDataPacketDist").stringValue(), "uniform") == 0) {
+        simtime_t DataTime = uniform(timeToNextDataPacketMin, timeToNextDataPacketMax);
+        return DataTime;
+    }
+    else if ( strcmp(par("timeToNextDataPacketDist").stringValue(), "exponential") == 0) {
+        simtime_t DataTime = exponential(timeToNextDataPacketAvg);
+        return DataTime;
+    }
+    return simTime();
+}
+
 
 } //end namespace inet
 

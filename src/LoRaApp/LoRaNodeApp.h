@@ -17,6 +17,7 @@
 #define __LORA_OMNET_LORANODEAPP_H_
 
 #include <omnetpp.h>
+#include <string>
 
 #include "inet/common/lifecycle/ILifecycle.h"
 #include "inet/common/lifecycle/NodeStatus.h"
@@ -55,6 +56,9 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
 
         void handleMessageFromLowerLayer(cMessage *msg);
         void handleSelfMessage(cMessage *msg);
+
+        simtime_t getTimeToNextDataPacket();
+        simtime_t getTimeToNextRoutingPacket();
 
         simtime_t sendRoutingPacket();
         simtime_t sendDataPacket();
@@ -116,9 +120,15 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         int deletedRoutes;
 
         simtime_t timeToFirstRoutingPacket;
-        simtime_t timeToNextRoutingPacket;
+        std::string timeToNextRoutingPacketDist;
+        simtime_t timeToNextRoutingPacketMin;
+        simtime_t timeToNextRoutingPacketMax;
+        simtime_t timeToNextRoutingPacketAvg;
         simtime_t timeToFirstDataPacket;
-        simtime_t timeToNextDataPacket;
+        std::string timeToNextDataPacketDist;
+        simtime_t timeToNextDataPacketMin;
+        simtime_t timeToNextDataPacketMax;
+        simtime_t timeToNextDataPacketAvg;
         simtime_t timeToNextForwardPacket;
 
         simtime_t dutyCycleEnd;
