@@ -301,7 +301,7 @@ void LoRaNodeApp::initialize(int stage) {
         generateDataPackets();
 
         // Routing packets timer
-        timeToFirstRoutingPacket = math::max(5, par("timeToFirstRoutingPacket"));
+        timeToFirstRoutingPacket = math::max(5, par("timeToFirstRoutingPacket"))+getTimeToNextRoutingPacket();
         switch (routingMetric) {
             // No routing packets are to be sent
             case NO_FORWARDING:
@@ -317,7 +317,7 @@ void LoRaNodeApp::initialize(int stage) {
         }
 
         // Data packets timer
-        timeToFirstDataPacket = math::max(5, par("timeToFirstDataPacket"));
+        timeToFirstDataPacket = math::max(5, par("timeToFirstDataPacket"))+getTimeToNextDataPacket();
         if (LoRaPacketsToSend.size() > 0) {
                     dataPacketsDue = true;
                     nextDataPacketTransmissionTime = timeToFirstDataPacket;
