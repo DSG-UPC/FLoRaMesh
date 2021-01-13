@@ -6,7 +6,6 @@ import inet.node.internetcloud.InternetCloud;
 import loranetwork.LoRaPhy.LoRaMedium;
 import loranetwork.LoraNode.LoRaNode;
 import loranetwork.LoraNode.LoRaGW;
-import loranetwork.LoraNode.LoRaMotoGW;
 import inet.node.inet.StandardHost;
 import inet.networklayer.configurator.ipv4.IPv4NetworkConfigurator;
 import inet.node.ethernet.Eth1G;
@@ -70,7 +69,7 @@ network LoRaMotoNetworkTest
         N[numberOfNodes]: LoRaNode {
             @display("p=83.664,233.856;is=n");
         }
-        loRaGW[numberOfGateways]: LoRaMotoGW {
+        loRaGW[numberOfGateways]: LoRaGW {
             @display("p=100,100;is=n");
         }
         LoRaMedium: LoRaMedium {
