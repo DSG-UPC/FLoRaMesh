@@ -133,6 +133,7 @@ void LoRaNodeApp::initialize(int stage) {
         routingPacketsDue = false;
 
         sendPacketsContinuously = par("sendPacketsContinuously");
+        onlyNode0SendsPackets = par("onlyNode0SendsPackets");
         enforceDutyCycle = par("enforceDutyCycle");
         dutyCycle = par("dutyCycle");
         numberOfDestinationsPerNode = par("numberOfDestinationsPerNode");
@@ -1438,8 +1439,7 @@ simtime_t LoRaNodeApp::sendRoutingPacket() {
 
 void LoRaNodeApp::generateDataPackets() {
 
-    if (true) {
-    //if (nodeId == 2) {
+    if (!onlyNode0SendsPackets || nodeId == 0) {
         std::vector<int> destinations = { };
 
         if (numberOfDestinationsPerNode == 0 )

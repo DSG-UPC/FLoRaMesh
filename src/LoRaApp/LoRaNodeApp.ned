@@ -66,6 +66,7 @@ simple LoRaNodeApp
         int packetsPerSF = default(1);
         int packetsInSF = default(0);
         bool sendPacketsContinuously = default(false);
+        bool onlyNode0SendsPackets = default(false);
         bool enforceDutyCycle = default(true);
         double dutyCycle = default(0.01);
         int numberOfDestinationsPerNode = default(1);

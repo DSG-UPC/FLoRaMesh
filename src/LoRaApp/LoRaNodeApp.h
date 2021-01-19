@@ -81,6 +81,7 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         simtime_t calculateTransmissionDuration(cMessage *msg);
 
         bool sendPacketsContinuously;
+        bool onlyNode0SendsPackets;
         bool enforceDutyCycle;
         double dutyCycle;
         int numberOfDestinationsPerNode;
