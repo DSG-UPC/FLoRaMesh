@@ -420,6 +420,9 @@ void LoRaNodeApp::finish() {
     recordScalar("firstACK", firstACK);
     recordScalar("firstACKSF", firstACKSF);
 
+    recordScalar("dataPacketsNotSent", LoRaPacketsToSend.size());
+    recordScalar("forwardPacketsNotSent", LoRaPacketsToSend.size());
+
     for (std::vector<LoRaAppPacket>::iterator lbptr = LoRaPacketsToSend.begin();
             lbptr < LoRaPacketsToSend.end(); lbptr++) {
         LoRaPacketsToSend.erase(lbptr);
