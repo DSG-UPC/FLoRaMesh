@@ -122,6 +122,8 @@ void LoRaNodeApp::initialize(int stage) {
         forwardedPackets = 0;
         forwardedDataPackets = 0;
         forwardedAckPackets = 0;
+        broadcastDataPackets = 0;
+        broadcastForwardedPackets = 0;
         deletedRoutes = 0;
 
         firstDataPacketTransmissionTime = 0;
@@ -269,6 +271,8 @@ void LoRaNodeApp::initialize(int stage) {
             WATCH(forwardedPackets);
             WATCH(forwardedDataPackets);
             WATCH(forwardedAckPackets);
+            WATCH(broadcastDataPackets);
+            WATCH(broadcastForwardedPackets);
             WATCH(deletedRoutes);
 
             WATCH(AppACKReceived);
@@ -1122,6 +1126,7 @@ bool LoRaNodeApp::handleOperationStage(LifecycleOperation *operation, int stage,
 simtime_t LoRaNodeApp::sendDataPacket() {
     LoRaAppPacket *dataPacket = new LoRaAppPacket("DataFrame");
 
+    bool localData = true;
     bool transmit = false;
     simtime_t txDuration = 0;
 
@@ -1165,6 +1170,7 @@ simtime_t LoRaNodeApp::sendDataPacket() {
     else if (LoRaPacketsToForward.size() > 0) {
 
         bubble("Forwarding a packet!");
+        localData = false;
 
         std::string fullName = dataPacket->getName();;
         const char* addName = "Fwd";
@@ -1202,6 +1208,7 @@ simtime_t LoRaNodeApp::sendDataPacket() {
                 transmit = true;
 
                 forwardedPackets++;
+                forwardedDataPackets++;
                 bubble("Forwarding packet!");
 
                 break;
@@ -1272,6 +1279,10 @@ simtime_t LoRaNodeApp::sendDataPacket() {
         switch (routingMetric) {
             case DUMMY_BROADCAST_SINGLE_SF:
                 dataPacket->setVia(BROADCAST_ADDRESS);
+                if (localData)
+                    broadcastDataPackets++;
+                else
+                    broadcastForwardedPackets++;
                 break;
             case SMART_BROADCAST_SINGLE_SF:
             case HOP_COUNT_SINGLE_SF:
@@ -1283,6 +1294,10 @@ simtime_t LoRaNodeApp::sendDataPacket() {
                 }
                 else{
                     dataPacket->setVia(BROADCAST_ADDRESS);
+                    if (localData)
+                        broadcastDataPackets++;
+                    else
+                        broadcastForwardedPackets++;
                 }
                 break;
             case TIME_ON_AIR_HC_CAD_SF:
@@ -1293,6 +1308,10 @@ simtime_t LoRaNodeApp::sendDataPacket() {
                 }
                 else{
                     dataPacket->setVia(BROADCAST_ADDRESS);
+                    if (localData)
+                        broadcastDataPackets++;
+                    else
+                        broadcastForwardedPackets++;
                 }
                 break;
         }
@@ -1353,6 +1372,7 @@ simtime_t LoRaNodeApp::sendRoutingPacket() {
 
         case HOP_COUNT_SINGLE_SF:
         case RSSI_SUM_SINGLE_SF:
+        case RSSI_PROD_SINGLE_SF:
         case ETX_SINGLE_SF:
 
             transmit = true;

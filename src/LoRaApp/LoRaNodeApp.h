@@ -117,6 +117,8 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         int forwardedPackets;
         int forwardedDataPackets;
         int forwardedAckPackets;
+        int broadcastDataPackets;
+        int broadcastForwardedPackets;
         int lastSentMeasurement;
         int deletedRoutes;
 
