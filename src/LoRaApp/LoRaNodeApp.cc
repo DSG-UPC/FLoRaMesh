@@ -413,6 +413,8 @@ void LoRaNodeApp::finish() {
     recordScalar("forwardedPackets", forwardedPackets);
     recordScalar("forwardedDataPackets", forwardedDataPackets);
     recordScalar("forwardedAckPackets", forwardedAckPackets);
+    recordScalar("broadcastDataPackets", broadcastDataPackets);
+    recordScalar("broadcastForwardedPackets", broadcastForwardedPackets);
 
     recordScalar("firstDataPacketTransmissionTime", firstDataPacketTransmissionTime);
     recordScalar("lastDataPacketTransmissionTime", lastDataPacketTransmissionTime);
@@ -1567,9 +1569,7 @@ bool LoRaNodeApp::isRouteInDualMetricRoutingTable(int id, int via, int sf) {
 int LoRaNodeApp::getRouteIndexInDualMetricRoutingTable(int id, int via, int sf) {
     int dualMetricRoutesCount = end(dualMetricRoutingTable) - begin(dualMetricRoutingTable);
 
-    int singleMetricRoutesCount = end(singleMetricRoutingTable) - begin(singleMetricRoutingTable);
-
-    for (int i = 0; i < singleMetricRoutesCount; i++) {
+    for (int i = 0; i < dualMetricRoutesCount; i++) {
         if (dualMetricRoutingTable[i].id == id && dualMetricRoutingTable[i].via == via && dualMetricRoutingTable[i].sf == sf) {
             return i;
         }
@@ -1694,7 +1694,7 @@ int LoRaNodeApp::getBestRouteIndexTo(int destination) {
         }
     }
     else if (dualMetricRoutingTable.size() > 0) {
-        int dualMetricRoutesCount = end(dualMetricRoutingTable) - begin(dualMetricRoutingTable);
+        int dualMetricRoutesCount = dualMetricRoutingTable.size();
 
         std::vector<dualMetricRoute> availableRoutes;
 
@@ -1719,7 +1719,7 @@ int LoRaNodeApp::getBestRouteIndexTo(int destination) {
                     bestRoute = j;
                 }
             }
-            return getRouteIndexInDualMetricRoutingTable(availableRoutes[bestRoute].id, availableRoutes[bestRoute].via, availableRoutes[bestRoute].sf);;
+            return getRouteIndexInDualMetricRoutingTable(availableRoutes[bestRoute].id, availableRoutes[bestRoute].via, availableRoutes[bestRoute].sf);
         }
     }
 
