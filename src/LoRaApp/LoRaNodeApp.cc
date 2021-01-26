@@ -153,6 +153,12 @@ void LoRaNodeApp::initialize(int stage) {
         loRaSF = par("initialLoRaSF");
         minLoRaSF = par("minLoRaSF");
         maxLoRaSF = par("maxLoRaSF");
+        if (loRaSF < minLoRaSF) {
+            loRaSF = minLoRaSF;
+        }
+        else if (loRaSF > maxLoRaSF) {
+            loRaSF = maxLoRaSF;
+        }
         loRaBW = inet::units::values::Hz(par("initialLoRaBW").doubleValue());
         loRaCR = par("initialLoRaCR");
         loRaUseHeader = par("initialUseHeader");
