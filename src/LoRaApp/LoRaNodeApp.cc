@@ -1246,6 +1246,7 @@ simtime_t LoRaNodeApp::sendDataPacket() {
                     if (!isPacketForwarded(dataPacket)) {
                         bubble("Forwarding packet!");
                         forwardedPackets++;
+                        forwardedDataPackets++;
                         transmit = true;
 
                         // Keep a copy of the forwarded packet to avoid sending it again if received later on
