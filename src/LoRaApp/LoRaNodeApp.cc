@@ -81,6 +81,15 @@ void LoRaNodeApp::initialize(int stage) {
                     minX + sepX * (nodeId % cols));
             mobility->par("initialY").setDoubleValue(
                     minY + sepY * ((int) nodeId / cols));
+        } else {
+            int minX = host->par("minX");
+            int maxX = host->par("maxX");
+            int minY = host->par("minY");
+            int maxY = host->par("maxY");
+            StationaryMobility *mobility = check_and_cast<StationaryMobility *>(
+                    host->getSubmodule("mobility"));
+            mobility->par("initialX").setDoubleValue(uniform(minX, maxX));
+            mobility->par("initialY").setDoubleValue(uniform(minY, maxY));
         }
     } else if (stage == INITSTAGE_APPLICATION_LAYER) {
         bool isOperational;
