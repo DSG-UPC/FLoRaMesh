@@ -471,10 +471,33 @@ void LoRaNodeApp::finish() {
     recordScalar("dataPacketsForMeLatencyMean", dataPacketsForMeLatency.getMean());
     recordScalar("dataPacketsForMeLatencyMin", dataPacketsForMeLatency.getMin());
     recordScalar("dataPacketsForMeLatencyStdv", dataPacketsForMeLatency.getStddev());
+
     recordScalar("dataPacketsForMeUniqueLatencyMax", dataPacketsForMeUniqueLatency.getMax());
     recordScalar("dataPacketsForMeUniqueLatencyMean", dataPacketsForMeUniqueLatency.getMean());
     recordScalar("dataPacketsForMeUniqueLatencyMin", dataPacketsForMeUniqueLatency.getMin());
     recordScalar("dataPacketsForMeUniqueLatencyStdv", dataPacketsForMeUniqueLatency.getStddev());
+
+    recordScalar("routingTableSizeMax", routingTableSize.getMax());
+    recordScalar("routingTableSizeMean", routingTableSize.getMean());
+    recordScalar("routingTableSizeMin", routingTableSize.getMin());
+    recordScalar("routingTableSizeStdv", routingTableSize.getStddev());
+
+    recordScalar("allTxPacketsSFStatsMax", allTxPacketsSFStats.getMax());
+    recordScalar("allTxPacketsSFStatsMean", allTxPacketsSFStats.getMean());
+    recordScalar("allTxPacketsSFStatsMin", allTxPacketsSFStats.getMin());
+    recordScalar("allTxPacketsSFStatsStdv", allTxPacketsSFStats.getStddev());
+    recordScalar("routingTxPacketsSFStatsMax", routingTxPacketsSFStats.getMax());
+    recordScalar("routingTxPacketsSFStatsMean", routingTxPacketsSFStats.getMean());
+    recordScalar("routingTxPacketsSFStatsMin", routingTxPacketsSFStats.getMin());
+    recordScalar("routingTxPacketsSFStatsStdv", routingTxPacketsSFStats.getStddev());
+    recordScalar("owndataTxPacketsSFStatsMax", routingTxPacketsSFStats.getMax());
+    recordScalar("owndataTxPacketsSFStatsMean", routingTxPacketsSFStats.getMean());
+    recordScalar("owndataTxPacketsSFStatsMin", routingTxPacketsSFStats.getMin());
+    recordScalar("owndataTxPacketsSFStatsStdv", routingTxPacketsSFStats.getStddev());
+    recordScalar("fwdTxPacketsSFStatsMax", routingTxPacketsSFStats.getMax());
+    recordScalar("fwdTxPacketsSFStatsMean", routingTxPacketsSFStats.getMean());
+    recordScalar("fwdTxPacketsSFStatsMin", routingTxPacketsSFStats.getMin());
+    recordScalar("fwdTxPacketsSFStatsStdv", routingTxPacketsSFStats.getStddev());
 
     dataPacketsForMeLatency.recordAs("dataPacketsForMeLatency");
     dataPacketsForMeUniqueLatency.recordAs("dataPacketsForMeUniqueLatency");
@@ -1338,6 +1361,15 @@ simtime_t LoRaNodeApp::sendDataPacket() {
 
         txDuration = calculateTransmissionDuration(dataPacket);
 
+        allTxPacketsSFStats.collect(loRaSF);
+        if (localData) {
+            owndataTxPacketsSFStats.collect(loRaSF);
+        }
+        else {
+            fwdTxPacketsSFStats.collect(loRaSF);
+        }
+
+
         send(dataPacket, "appOut");
         txSfVector.record(loRaSF);
         txTpVector.record(loRaTP);
@@ -1427,7 +1459,8 @@ simtime_t LoRaNodeApp::sendRoutingPacket() {
         case TIME_ON_AIR_SF_CAD_SF:
             transmit = true;
 
-            cInfo->setLoRaSF(pickCADSF());
+            loRaSF = pickCADSF();
+            cInfo->setLoRaSF(loRaSF);
 
             std::vector<LoRaRoute> allLoRaRoutes;
 
@@ -1467,6 +1500,9 @@ simtime_t LoRaNodeApp::sendRoutingPacket() {
         txTpVector.record(loRaTP);
 
         txDuration = calculateTransmissionDuration(routingPacket);
+
+        allTxPacketsSFStats.collect(loRaSF);
+        routingTxPacketsSFStats.collect(loRaSF);
 
         send(routingPacket, "appOut");
         bubble("Sending routing packet");
