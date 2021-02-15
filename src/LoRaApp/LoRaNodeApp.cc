@@ -1182,7 +1182,6 @@ simtime_t LoRaNodeApp::sendDataPacket() {
         fullName += addName;
         fullName += std::to_string(nodeId);
 
-        dataPacket->setName(fullName.c_str());
 
         // Get the data from the first packet in the data buffer to send it
         dataPacket->setMsgType(LoRaPacketsToSend.front().getMsgType());
@@ -1194,6 +1193,11 @@ simtime_t LoRaNodeApp::sendDataPacket() {
         dataPacket->getOptions().setAppACKReq(LoRaPacketsToSend.front().getOptions().getAppACKReq());
         dataPacket->setByteLength(LoRaPacketsToSend.front().getByteLength());
         dataPacket->setDepartureTime(simTime());
+
+        addName = "Dest";
+        fullName += addName;
+        fullName += std::to_string(dataPacket->getDestination());
+        dataPacket->setName(fullName.c_str());
 
         LoRaPacketsToSend.erase(LoRaPacketsToSend.begin());
 
