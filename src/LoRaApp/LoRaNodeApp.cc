@@ -307,7 +307,6 @@ void LoRaNodeApp::initialize(int stage) {
 
             //WATCH_VECTOR(singleMetricRoutingTable);
             //WATCH_VECTOR(dualMetricRoutingTable);
-            WATCH(routingTableSize);
 
             WATCH_VECTOR(LoRaPacketsToSend);
             WATCH_VECTOR(LoRaPacketsToForward);
