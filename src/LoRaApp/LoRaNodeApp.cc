@@ -614,7 +614,9 @@ void LoRaNodeApp::handleSelfMessage(cMessage *msg) {
             for (int i=0; i<numberOfNodes; i++) {
                 LoRaNodeApp *lrndpp = (LoRaNodeApp *) getParentModule()->getParentModule()->getSubmodule("loRaNodes", i)->getSubmodule("LoRaNodeApp");
                 if ( !(lrndpp->lastDataPacketTransmissionTime > 0 && \
-                     lrndpp->lastDataPacketReceptionTime > 0 &&
+                     // ToDo: maybe too restrictive? If no packets were received at all
+                     // simulation laster until the very end
+                     //lrndpp->lastDataPacketReceptionTime > 0 &&
                      lrndpp->lastDataPacketTransmissionTime + stopRoutingAfterDataDone < simTime() && \
                      lrndpp->lastDataPacketReceptionTime + stopRoutingAfterDataDone < simTime() )) {
                     allNodesDone = false;
