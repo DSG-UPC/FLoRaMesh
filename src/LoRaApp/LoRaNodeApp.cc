@@ -131,6 +131,7 @@ void LoRaNodeApp::initialize(int stage) {
         forwardedPackets = 0;
         forwardedDataPackets = 0;
         forwardedAckPackets = 0;
+        forwardPacketsDuplicateAvoid = 0;
         broadcastDataPackets = 0;
         broadcastForwardedPackets = 0;
         deletedRoutes = 0;
@@ -255,6 +256,9 @@ void LoRaNodeApp::initialize(int stage) {
         packetsPerSF = par("packetsPerSF");
         packetsInSF = 0;
 
+        //Forwarded packets vector size
+        forwardedPacketVectorSize = par("forwardedPacketVectorSize");
+
         //WATCHES only for GUI
         if (getEnvir()->isGUI()) {
             WATCH(sentPackets);
@@ -285,6 +289,7 @@ void LoRaNodeApp::initialize(int stage) {
             WATCH(forwardedPackets);
             WATCH(forwardedDataPackets);
             WATCH(forwardedAckPackets);
+            WATCH(forwardPacketsDuplicateAvoid);
             WATCH(broadcastDataPackets);
             WATCH(broadcastForwardedPackets);
             WATCH(deletedRoutes);
@@ -426,6 +431,7 @@ void LoRaNodeApp::finish() {
     recordScalar("forwardedPackets", forwardedPackets);
     recordScalar("forwardedDataPackets", forwardedDataPackets);
     recordScalar("forwardedAckPackets", forwardedAckPackets);
+    recordScalar("forwardPacketsDuplicateAvoid", forwardPacketsDuplicateAvoid);
     recordScalar("broadcastDataPackets", broadcastDataPackets);
     recordScalar("broadcastForwardedPackets", broadcastForwardedPackets);
 
@@ -1072,10 +1078,12 @@ void LoRaNodeApp::manageReceivedDataPacketToForward(cMessage *msg) {
                 // Check if the packet has already been forwarded
                 if (isPacketForwarded(packet)) {
                     bubble("This packet has already been forwarded!");
+                    forwardPacketsDuplicateAvoid++;
                 }
                 // Check if the packet is buffered to be forwarded
                 else if (isPacketToBeForwarded(packet)) {
                     bubble("This packet is already scheduled to be forwarded!");
+                    forwardPacketsDuplicateAvoid++;
                 // A previously-unknown packet has arrived
                 } else {
                     bubble("Saving packet to forward it later!");
@@ -1264,6 +1272,9 @@ simtime_t LoRaNodeApp::sendDataPacket() {
 
                         // Keep a copy of the forwarded packet to avoid sending it again if received later on
                         LoRaPacketsForwarded.push_back(*dataPacket);
+                        if (LoRaPacketsForwarded.size() > forwardedPacketVectorSize){
+                            LoRaPacketsForwarded.erase(LoRaPacketsForwarded.begin());
+                        }
                         break;
                     }
                 }

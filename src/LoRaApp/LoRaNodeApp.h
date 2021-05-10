@@ -117,6 +117,7 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         int forwardedPackets;
         int forwardedDataPackets;
         int forwardedAckPackets;
+        int forwardPacketsDuplicateAvoid;
         int broadcastDataPackets;
         int broadcastForwardedPackets;
         int lastSentMeasurement;
@@ -229,6 +230,9 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         //LoRa settings
         int minLoRaSF;
         int maxLoRaSF;
+
+        //Forwarded packets vector size
+        int forwardedPacketVectorSize;
 
         // Routing tables
         class singleMetricRoute {
