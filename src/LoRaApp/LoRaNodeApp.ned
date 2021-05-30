@@ -75,6 +75,7 @@ simple LoRaNodeApp
         int routingPacketMaxSize @unit(B) = default(16B);
         volatile double stopRoutingAfterDataDone @unit(s) = default(3600s);
         int forwardedPacketVectorSize = default(10);
+        int packetsToForwardMaxVectorSize = default(0);
     gates:
         output appOut @labels(LoRaAppPacket/down);
         input appIn @labels(LoRaAppPacket/up);

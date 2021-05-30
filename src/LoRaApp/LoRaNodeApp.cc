@@ -132,9 +132,11 @@ void LoRaNodeApp::initialize(int stage) {
         forwardedDataPackets = 0;
         forwardedAckPackets = 0;
         forwardPacketsDuplicateAvoid = 0;
+        packetsToForwardMaxVectorSize = 0;
         broadcastDataPackets = 0;
         broadcastForwardedPackets = 0;
         deletedRoutes = 0;
+        forwardBufferFull = 0;
 
         firstDataPacketTransmissionTime = 0;
         lastDataPacketTransmissionTime = 0;
@@ -152,6 +154,8 @@ void LoRaNodeApp::initialize(int stage) {
         numberOfPacketsPerDestination = par("numberOfPacketsPerDestination");
 
         numberOfPacketsToForward = par("numberOfPacketsToForward");
+
+        packetsToForwardMaxVectorSize = par("packetsToForwardMaxVectorSize");
 
         LoRa_AppPacketSent = registerSignal("LoRa_AppPacketSent");
 
@@ -290,9 +294,11 @@ void LoRaNodeApp::initialize(int stage) {
             WATCH(forwardedDataPackets);
             WATCH(forwardedAckPackets);
             WATCH(forwardPacketsDuplicateAvoid);
+            WATCH(packetsToForwardMaxVectorSize);
             WATCH(broadcastDataPackets);
             WATCH(broadcastForwardedPackets);
             WATCH(deletedRoutes);
+            WATCH(forwardBufferFull);
 
             WATCH(AppACKReceived);
             WATCH(firstACK);
@@ -432,6 +438,7 @@ void LoRaNodeApp::finish() {
     recordScalar("forwardedDataPackets", forwardedDataPackets);
     recordScalar("forwardedAckPackets", forwardedAckPackets);
     recordScalar("forwardPacketsDuplicateAvoid", forwardPacketsDuplicateAvoid);
+    recordScalar("packetsToForwardMaxVectorSize", packetsToForwardMaxVectorSize);
     recordScalar("broadcastDataPackets", broadcastDataPackets);
     recordScalar("broadcastForwardedPackets", broadcastForwardedPackets);
 
@@ -447,6 +454,8 @@ void LoRaNodeApp::finish() {
 
     recordScalar("dataPacketsNotSent", LoRaPacketsToSend.size());
     recordScalar("forwardPacketsNotSent", LoRaPacketsToSend.size());
+
+    recordScalar("forwardBufferFull", forwardBufferFull);
 
     for (std::vector<LoRaAppPacket>::iterator lbptr = LoRaPacketsToSend.begin();
             lbptr < LoRaPacketsToSend.end(); lbptr++) {
@@ -1090,8 +1099,13 @@ void LoRaNodeApp::manageReceivedDataPacketToForward(cMessage *msg) {
                     receivedDataPacketsToForwardUnique++;
 
                     dataPacket->setTtl(packet->getTtl() - 1);
-                    LoRaPacketsToForward.push_back(*dataPacket);
-                    newPacketToForward = true;
+                    if (packetsToForwardMaxVectorSize == 0 || LoRaPacketsToForward.size()<packetsToForwardMaxVectorSize) {
+                        LoRaPacketsToForward.push_back(*dataPacket);
+                        newPacketToForward = true;
+                    }
+                    else {
+                        forwardBufferFull++;
+                    }
                 }
         }
 

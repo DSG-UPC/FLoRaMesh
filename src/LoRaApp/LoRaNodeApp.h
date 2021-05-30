@@ -122,6 +122,7 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         int broadcastForwardedPackets;
         int lastSentMeasurement;
         int deletedRoutes;
+        int forwardBufferFull;
 
         simtime_t timeToFirstRoutingPacket;
         std::string timeToNextRoutingPacketDist;
@@ -233,6 +234,9 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
 
         //Forwarded packets vector size
         int forwardedPacketVectorSize;
+
+        //Forward packets buffer max vector size
+        int packetsToForwardMaxVectorSize;
 
         // Routing tables
         class singleMetricRoute {
