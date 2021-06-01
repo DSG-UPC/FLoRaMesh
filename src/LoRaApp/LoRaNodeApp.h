@@ -58,10 +58,12 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         void handleSelfMessage(cMessage *msg);
 
         simtime_t getTimeToNextDataPacket();
+        simtime_t getTimeToNextForwardPacket();
         simtime_t getTimeToNextRoutingPacket();
 
-        simtime_t sendRoutingPacket();
         simtime_t sendDataPacket();
+        simtime_t sendForwardPacket();
+        simtime_t sendRoutingPacket();
         void manageReceivedPacketForMe(cMessage *msg);
         void manageReceivedAckPacketForMe(cMessage *msg);
         void manageReceivedDataPacketForMe(cMessage *msg);
@@ -124,17 +126,23 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         int deletedRoutes;
         int forwardBufferFull;
 
-        simtime_t timeToFirstRoutingPacket;
-        std::string timeToNextRoutingPacketDist;
-        simtime_t timeToNextRoutingPacketMin;
-        simtime_t timeToNextRoutingPacketMax;
-        simtime_t timeToNextRoutingPacketAvg;
         simtime_t timeToFirstDataPacket;
         std::string timeToNextDataPacketDist;
         simtime_t timeToNextDataPacketMin;
         simtime_t timeToNextDataPacketMax;
         simtime_t timeToNextDataPacketAvg;
-        simtime_t timeToNextForwardPacket;
+
+        simtime_t timeToFirstForwardPacket;
+        std::string timeToNextForwardPacketDist;
+        simtime_t timeToNextForwardPacketMin;
+        simtime_t timeToNextForwardPacketMax;
+        simtime_t timeToNextForwardPacketAvg;
+
+        simtime_t timeToFirstRoutingPacket;
+        std::string timeToNextRoutingPacketDist;
+        simtime_t timeToNextRoutingPacketMin;
+        simtime_t timeToNextRoutingPacketMax;
+        simtime_t timeToNextRoutingPacketAvg;
 
         simtime_t dutyCycleEnd;
 
@@ -143,6 +151,7 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         simtime_t nextForwardPacketTransmissionTime;
 
         bool dataPacketsDue;
+        bool forwardPacketsDue;
         bool routingPacketsDue;
 
         cHistogram allTxPacketsSFStats;

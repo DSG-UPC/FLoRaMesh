@@ -25,13 +25,19 @@ simple LoRaNodeApp
         @statistic[LoRa_AppPacketSent](source=LoRa_AppPacketSent; record=count);
         int numberOfPacketsToForward = default(0);
 
-        volatile double timeToFirstDataPacket @unit(s) = default(30s);
+        volatile double timeToFirstDataPacket @unit(s) = default(300s);
         string timeToNextDataPacketDist = default("uniform");
         volatile double timeToNextDataPacketMin @unit(s) = default(0s);
         volatile double timeToNextDataPacketMax @unit(s) = default(60s);
         volatile double timeToNextDataPacketAvg @unit(s) = default(30s);
 
-        volatile double timeToFirstRoutingPacket @unit(s) = default(300s);
+        volatile double timeToFirstForwardPacket @unit(s) = default(300s);
+        string timeToNextForwardPacketDist = default("uniform");
+        volatile double timeToNextForwardPacketMin @unit(s) = default(0s);
+        volatile double timeToNextForwardPacketMax @unit(s) = default(60s);
+        volatile double timeToNextForwardPacketAvg @unit(s) = default(30s);
+
+        volatile double timeToFirstRoutingPacket @unit(s) = default(60s);
         string timeToNextRoutingPacketDist = default("uniform");
 		volatile double timeToNextRoutingPacketMin @unit(s) = default(0s);
 		volatile double timeToNextRoutingPacketMax @unit(s) = default(600s);
