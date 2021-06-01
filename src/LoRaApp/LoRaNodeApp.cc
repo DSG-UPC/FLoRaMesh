@@ -942,7 +942,7 @@ void LoRaNodeApp::manageReceivedRoutingPacket(cMessage *msg) {
 
                     if (thisRoute.getId() != nodeId ) {
                         // Add new route
-                        if ( !isRouteInDualMetricRoutingTable(packet->getSource(), packet->getVia(), packet->getOptions().getLoRaSF())) {
+                        if ( !isRouteInDualMetricRoutingTable(thisRoute.getId(), packet->getVia(), packet->getOptions().getLoRaSF())) {
 //                            EV << "Adding route to node " << thisRoute.getId() << " via " << packet->getSource() << " with SF " << packet->getOptions().getLoRaSF() << endl;
                             dualMetricRoute newRoute;
                             newRoute.id = thisRoute.getId();
@@ -992,7 +992,7 @@ void LoRaNodeApp::manageReceivedRoutingPacket(cMessage *msg) {
 
                     if (thisRoute.getId() != nodeId ) {
                         // Add new route
-                        if ( !isRouteInDualMetricRoutingTable(packet->getSource(), packet->getVia(), packet->getOptions().getLoRaSF())) {
+                        if ( !isRouteInDualMetricRoutingTable(thisRoute.getId(), packet->getVia(), packet->getOptions().getLoRaSF())) {
 //                            EV << "Adding route to node " << thisRoute.getId() << " via " << packet->getSource() << " with SF " << packet->getOptions().getLoRaSF() << endl;
                             dualMetricRoute newRoute;
                             newRoute.id = thisRoute.getId();
