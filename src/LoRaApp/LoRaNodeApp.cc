@@ -553,7 +553,7 @@ void LoRaNodeApp::handleMessage(cMessage *msg) {
 void LoRaNodeApp::handleSelfMessage(cMessage *msg) {
 
     // Received a selfMessage for transmitting a scheduled packet.  Only proceed to send a packet
-    // if the 'mac' module in 'LoRaNic' is IDLE and the warmup period is due.
+    // if the 'mac' module in 'LoRaNic' is IDLE and the warmup period is due (TODO: implement check for the latter).
     LoRaMac *lrmc = (LoRaMac *)getParentModule()->getSubmodule("LoRaNic")->getSubmodule("mac");
     if (lrmc->fsm.getState() == IDLE ) {
 
@@ -581,7 +581,8 @@ void LoRaNodeApp::handleSelfMessage(cMessage *msg) {
             sendRouting = true;
         }
 
-        // If both types of packets are pending, decide which one will be sent
+        // Now there could be between none and three types of packets due to be sent. Decide between routing and the
+        // other two types randomly with the probability from the routingPacketPriotity parameter
         if (sendRouting && (sendData || sendForward) ) {
             // Either send a routing packet...
             if (bernoulli(routingPacketPriority)) {
@@ -608,37 +609,71 @@ void LoRaNodeApp::handleSelfMessage(cMessage *msg) {
             }
         }
 
-        // Send or forward data packet
+        // Send data or forward packet
         else if (sendData || sendForward) {
-            txDuration = sendDataPacket();
-            if (enforceDutyCycle) {
-                // Update duty cycle end
-                dutyCycleEnd = simTime() + txDuration/dutyCycle;
-                // Update next routing packet transmission time, taking the duty cycle into account
-                nextDataPacketTransmissionTime = simTime() + math::max(getTimeToNextDataPacket().dbl(), txDuration.dbl()/dutyCycle);
+
+            // If both data and forward packets are due, decide randomly between the two with the probability from the
+            // ownDataPriority parameter
+            if (sendData && sendForward) {
+                if (bernoulli(ownDataPriority))
+                    // Send own data packet
+                    sendForward = false;
+                else
+                    // Send forward packet
+                    sendData = false;
             }
+
+            // Send data packet
+            if (sendData) {
+
+                txDuration = sendDataPacket();
+                if (enforceDutyCycle) {
+                    // Update duty cycle end
+                    dutyCycleEnd = simTime() + txDuration/dutyCycle;
+                    // Update next data packet transmission time, taking the duty cycle into account
+                    nextDataPacketTransmissionTime = simTime() + math::max(getTimeToNextDataPacket().dbl(), txDuration.dbl()/dutyCycle);
+                }
+                else {
+                    // Update next data packet transmission time
+                    nextDataPacketTransmissionTime = simTime() + math::max(getTimeToNextDataPacket().dbl(), txDuration.dbl());
+                }
+            }
+            // or send forward packet
             else {
-                // Update next routing packet transmission time
-                nextDataPacketTransmissionTime = simTime() + math::max(getTimeToNextDataPacket().dbl(), txDuration.dbl());
-            }
-            if ( LoRaPacketsToSend.size() > 0 || LoRaPacketsToForward.size() > 0 ) {
-                dataPacketsDue = true;
-            }
-            else {
-                dataPacketsDue = false;
+                txDuration = sendForwardPacket();
+                if (enforceDutyCycle) {
+                    // Update duty cycle end
+                    dutyCycleEnd = simTime() + txDuration/dutyCycle;
+                    // Update next forward packet transmission time, taking the duty cycle into account
+                    nextForwardPacketTransmissionTime = simTime() + math::max(getTimeToNextForwardPacket().dbl(), txDuration.dbl()/dutyCycle);
+                }
+                else {
+                // Update next forward packet transmission time
+                    nextForwardPacketTransmissionTime = simTime() + math::max(getTimeToNextForwardPacket().dbl(), txDuration.dbl());
+                }
             }
         }
 
-        if (routingPacketsDue && dataPacketsDue) {
-            nextScheduleTime = math::max(simTime().dbl()+txDuration.dbl(), std::min(nextRoutingPacketTransmissionTime.dbl(), nextDataPacketTransmissionTime.dbl()));
-        }
-        else if (routingPacketsDue) {
-            nextScheduleTime = nextRoutingPacketTransmissionTime;
-        }
-        else if (dataPacketsDue) {
-            nextScheduleTime = nextDataPacketTransmissionTime;
-        }
+        // We've sent a packet (routing, data or forward). Now reschedule a selfMessage if needed.
+        if ( LoRaPacketsToSend.size() > 0 )
+            dataPacketsDue = true;
+        if ( LoRaPacketsToForward.size() > 0 )
+            forwardPacketsDue = false;
+        // routingPackets due is handled below.
 
+        // Calculate next schedule time, first based on routing packets next transmission time,
+        if (routingPacketsDue) {
+            nextScheduleTime = nextRoutingPacketTransmissionTime.dbl();
+        }
+        // then based on data packets, if they are to be scheduled earlier,
+        if (dataPacketsDue) {
+            nextScheduleTime = std::min(nextScheduleTime.dbl(), nextDataPacketTransmissionTime.dbl());
+        }
+        // then based on forward packets, if they are to be scheduled earlier,
+        if (forwardPacketsDue) {
+            nextScheduleTime = std::min(nextScheduleTime.dbl(), nextForwardPacketTransmissionTime.dbl());
+        }
+        // but, in any case, not earlier than simTime()+txDuration.
         nextScheduleTime = math::max(nextScheduleTime.dbl(), simTime().dbl()+txDuration.dbl());
 
         // Take the duty cycle into account
@@ -646,15 +681,14 @@ void LoRaNodeApp::handleSelfMessage(cMessage *msg) {
             nextScheduleTime = math::max(nextScheduleTime.dbl(), dutyCycleEnd.dbl());
         }
 
-        // Last, check the schedule time is in the future, otherwise just add a 1s delay
+        // Last, although this should never happen, check the schedule time is in the future, otherwise just add a 1s delay
         if (! (nextScheduleTime > simTime()) ) {
             nextScheduleTime = simTime() + 1;
         }
 
-        // Schedule a self message to send routing or data packets. Add a
-        // simulation time delta (i.e., a simtime-resolution unit) to avoid
-        // timing conflicts in the LoRaMac layer
-        if (routingPacketsDue || dataPacketsDue) {
+        // Schedule a self message to send routing, data or forward packets. Since some calculations lose precision, add an extra delay
+        // (10x simtime-resolution unit) to avoid timing conflicts in the LoRaMac layer when simulations last very long.
+        if (routingPacketsDue || dataPacketsDue || forwardPacketsDue) {
             scheduleAt(nextScheduleTime + 10*simTimeResolution, selfPacket);
         }
 
@@ -680,6 +714,8 @@ void LoRaNodeApp::handleSelfMessage(cMessage *msg) {
             }
         }
     }
+
+
     // The LoRa radio was busy with a reception, so re-schedule the selfMessage a bit later
     else {
         // Instead of doing scheduling almost immediately: scheduleAt(simTime() + 10*simTimeResolution, selfPacket);
