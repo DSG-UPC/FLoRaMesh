@@ -951,6 +951,7 @@ void LoRaNodeApp::manageReceivedRoutingPacket(cMessage *msg) {
                             newRoute.priMetric = thisRoute.getPriMetric() + pow(2, packet->getOptions().getLoRaSF());
                             newRoute.secMetric = thisRoute.getSecMetric() + 1;
                             newRoute.valid = simTime() + routeTimeout;
+                            dualMetricRoutingTable.push_back(newRoute);
                         }
                     }
                     // Or update known one
@@ -1000,6 +1001,7 @@ void LoRaNodeApp::manageReceivedRoutingPacket(cMessage *msg) {
                             newRoute.priMetric = thisRoute.getPriMetric() + pow(2, packet->getOptions().getLoRaSF());
                             newRoute.secMetric = thisRoute.getSecMetric() + packet->getOptions().getLoRaSF() - 7;
                             newRoute.valid = simTime() + routeTimeout;
+                            dualMetricRoutingTable.push_back(newRoute);
                         }
                         // Or update known one
                         else {
