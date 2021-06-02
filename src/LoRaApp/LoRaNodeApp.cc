@@ -924,6 +924,7 @@ void LoRaNodeApp::manageReceivedRoutingPacket(cMessage *msg) {
             case TIME_ON_AIR_HC_CAD_SF:
                 bubble("Processing routing packet");
 
+                // Add new route to the neighbour node that sent this routing packet
                 if ( !isRouteInDualMetricRoutingTable(packet->getSource(), packet->getSource(), packet->getOptions().getLoRaSF())) {
 //                    EV << "Adding neighbour " << packet->getSource() << " with SF " << packet->getOptions().getLoRaSF() << endl;
 
@@ -935,6 +936,13 @@ void LoRaNodeApp::manageReceivedRoutingPacket(cMessage *msg) {
                     newNeighbour.secMetric = 1;
                     newNeighbour.valid = simTime() + routeTimeout;
                     dualMetricRoutingTable.push_back(newNeighbour);
+                }
+                // or update known route to this node
+                else {
+                    int routeIndex = getRouteIndexInDualMetricRoutingTable(packet->getSource(), packet->getSource(), packet->getOptions().getLoRaSF());
+                    if (routeIndex >= 0) {
+                        dualMetricRoutingTable[routeIndex].valid = simTime() + routeTimeout;
+                    }
                 }
 
                 for (int i = 0; i < packet->getRoutingTableArraySize(); i++) {
@@ -948,7 +956,7 @@ void LoRaNodeApp::manageReceivedRoutingPacket(cMessage *msg) {
                             newRoute.id = thisRoute.getId();
                             newRoute.via = packet->getSource();
                             newRoute.sf = packet->getOptions().getLoRaSF();
-                            newRoute.priMetric = thisRoute.getPriMetric() + pow(2, packet->getOptions().getLoRaSF());
+                            newRoute.priMetric = thisRoute.getPriMetric() + pow(2, packet->getOptions().getLoRaSF() - 7);
                             newRoute.secMetric = thisRoute.getSecMetric() + 1;
                             newRoute.valid = simTime() + routeTimeout;
                             dualMetricRoutingTable.push_back(newRoute);
@@ -958,64 +966,14 @@ void LoRaNodeApp::manageReceivedRoutingPacket(cMessage *msg) {
                     else {
                         int routeIndex = getRouteIndexInDualMetricRoutingTable(thisRoute.getId(), packet->getSource(), packet->getOptions().getLoRaSF());
                         if (routeIndex >= 0) {
-                            dualMetricRoutingTable[routeIndex].priMetric = thisRoute.getPriMetric() + pow(2, packet->getOptions().getLoRaSF());
+                            dualMetricRoutingTable[routeIndex].priMetric = thisRoute.getPriMetric() + pow(2, packet->getOptions().getLoRaSF() - 7);
                             dualMetricRoutingTable[routeIndex].secMetric = thisRoute.getSecMetric() + 1;
                             dualMetricRoutingTable[routeIndex].valid = simTime() + routeTimeout;
                         }
                     }
                 }
 
-//                EV << "Routing table size: " << end(dualMetricRoutingTable) - begin(dualMetricRoutingTable) << endl;
-                break;
-
-            case TIME_ON_AIR_SF_CAD_SF:
-                bubble("Processing routing packet");
-
-//                EV << "Processing routing packet in node " << nodeId << endl;
-//                EV << "Routing table size: " << end(dualMetricRoutingTable) - begin(dualMetricRoutingTable) << endl;
-
-                if ( !isRouteInDualMetricRoutingTable(packet->getSource(), packet->getSource(), packet->getOptions().getLoRaSF())) {
-//                    EV << "Adding neighbour " << packet->getSource() << " with SF " << packet->getOptions().getLoRaSF() << endl;
-
-                    dualMetricRoute newNeighbour;
-                    newNeighbour.id = packet->getSource();
-                    newNeighbour.via = packet->getSource();
-                    newNeighbour.sf = packet->getOptions().getLoRaSF();
-                    newNeighbour.priMetric = pow(2, packet->getOptions().getLoRaSF() - 7);
-                    newNeighbour.secMetric = packet->getOptions().getLoRaSF() - 7;
-                    newNeighbour.valid = simTime() + routeTimeout;
-                    dualMetricRoutingTable.push_back(newNeighbour);
-                }
-
-                for (int i = 0; i < packet->getRoutingTableArraySize(); i++) {
-                    LoRaRoute thisRoute = packet->getRoutingTable(i);
-
-                    if (thisRoute.getId() != nodeId ) {
-                        // Add new route
-                        if ( !isRouteInDualMetricRoutingTable(thisRoute.getId(), packet->getVia(), packet->getOptions().getLoRaSF())) {
-//                            EV << "Adding route to node " << thisRoute.getId() << " via " << packet->getSource() << " with SF " << packet->getOptions().getLoRaSF() << endl;
-                            dualMetricRoute newRoute;
-                            newRoute.id = thisRoute.getId();
-                            newRoute.via = packet->getSource();
-                            newRoute.sf = packet->getOptions().getLoRaSF();
-                            newRoute.priMetric = thisRoute.getPriMetric() + pow(2, packet->getOptions().getLoRaSF());
-                            newRoute.secMetric = thisRoute.getSecMetric() + packet->getOptions().getLoRaSF() - 7;
-                            newRoute.valid = simTime() + routeTimeout;
-                            dualMetricRoutingTable.push_back(newRoute);
-                        }
-                        // Or update known one
-                        else {
-                            int routeIndex = getRouteIndexInDualMetricRoutingTable(thisRoute.getId(), packet->getSource(), packet->getOptions().getLoRaSF());
-                            if (routeIndex >= 0) {
-                                dualMetricRoutingTable[routeIndex].priMetric = thisRoute.getPriMetric() + pow(2, packet->getOptions().getLoRaSF());
-                                dualMetricRoutingTable[routeIndex].secMetric = thisRoute.getSecMetric() + packet->getOptions().getLoRaSF() - 7;
-                                dualMetricRoutingTable[routeIndex].valid = simTime() + routeTimeout;
-                            }
-                        }
-                    }
-                }
-
-//                EV << "Routing table size: " << end(dualMetricRoutingTable) - begin(dualMetricRoutingTable) << endl;
+                EV << "Routing table size: " << end(dualMetricRoutingTable) - begin(dualMetricRoutingTable) << endl;
                 break;
 
             default:
