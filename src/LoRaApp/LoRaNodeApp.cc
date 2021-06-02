@@ -1396,7 +1396,7 @@ simtime_t LoRaNodeApp::sendRoutingPacket() {
             // Make room for numberOfRoutes routes
             routingPacket->setRoutingTableArraySize(numberOfRoutes);
 
-            // Add the best route to each node
+            // Add the best route to each node to the routing packet
             for (int i=0; i<numberOfNodes; i++) {
                 if (i != nodeId) {
                     if (getBestRouteIndexTo(i) >= 0) {
@@ -1416,23 +1416,41 @@ simtime_t LoRaNodeApp::sendRoutingPacket() {
         case TIME_ON_AIR_SF_CAD_SF:
             transmit = true;
 
-            loRaSF = pickCADSF();
-            cInfo->setLoRaSF(loRaSF);
+            // Count the number of best routes
+            for (int i=0; i<numberOfNodes; i++) {
+                if (i != nodeId) {
+                    if (getBestRouteIndexTo(i) >= 0) {
+                        numberOfRoutes++;
+                    }
+                }
+            }
+
+            // Save the number of routes to the packet
+            routingPacket->setRoutingTableArraySize(numberOfRoutes);
 
             std::vector<LoRaRoute> allLoRaRoutes;
 
-            routingPacket->setRoutingTableArraySize(dualMetricRoutesCount);
+            //routingPacket->setRoutingTableArraySize(dualMetricRoutesCount);
 
-           for (int i = 0; i < dualMetricRoutesCount; i++) {
-               LoRaRoute thisLoRaRoute;
-               thisLoRaRoute.setId(dualMetricRoutingTable[i].id);
-               thisLoRaRoute.setPriMetric(dualMetricRoutingTable[i].priMetric);
-               thisLoRaRoute.setSecMetric(dualMetricRoutingTable[i].secMetric);
-               allLoRaRoutes.push_back(thisLoRaRoute);
-               routingPacket->setRoutingTable(i, thisLoRaRoute);
-           }
+            // Add the best route to each node to the routing packet
+            for (int i=0; i<numberOfNodes; i++) {
+                if (i != nodeId) {
+                    if (getBestRouteIndexTo(i) >= 0 ){
+                        LoRaRoute thisLoRaRoute;
+                        thisLoRaRoute.setId(dualMetricRoutingTable[getBestRouteIndexTo(i)].id); //i.e., "i"
+                        thisLoRaRoute.setPriMetric(dualMetricRoutingTable[getBestRouteIndexTo(i)].priMetric);
+                        thisLoRaRoute.setSecMetric(dualMetricRoutingTable[getBestRouteIndexTo(i)].secMetric);
+                        routingPacket->setRoutingTable(numberOfRoutes-1, thisLoRaRoute);
+                        numberOfRoutes--;
+                    }
+                }
+            }
 
-            break;
+           // Decide on what SF to transmit and the packet is done
+           loRaSF = pickCADSF();
+           cInfo->setLoRaSF(loRaSF);
+
+           break;
     }
 
 
