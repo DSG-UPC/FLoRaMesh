@@ -3,15 +3,15 @@
 // it under the terms of the GNU Lesser General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
-// 
+//
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU Lesser General Public License for more details.
-// 
+//
 // You should have received a copy of the GNU Lesser General Public License
 // along with this program.  If not, see http://www.gnu.org/licenses/.
-// 
+//
 
 #include "LoRaNodeApp.h"
 #include "inet/common/FSMA.h"
@@ -23,17 +23,19 @@ namespace inet {
 
 #define BROADCAST_ADDRESS   16777215
 
-#define NO_FORWARDING                    0
-#define FLOODING_BROADCAST_SINGLE_SF     1
-#define SMART_BROADCAST_SINGLE_SF        2
-#define HOP_COUNT_SINGLE_SF              3
-#define RSSI_SUM_SINGLE_SF               4
-#define RSSI_PROD_SINGLE_SF              5
-#define ETX_SINGLE_SF                    6
-#define TIME_ON_AIR_HC_CAD_MULTI_SF     11
-#define TIME_ON_AIR_ETX_CAD_MULTI_SF    12
-#define TIME_ON_AIR_FQUEUE_CAD_MULTI_SF 13
-#define TIME_ON_AIR_RMP1_CAD_MULTI_SF   14
+#define NO_FORWARDING                    0  // No forwarding, no routing.
+#define FLOODING_BROADCAST_SINGLE_SF     1  // Forwarding by flooding, no routing.
+#define SMART_BROADCAST_SINGLE_SF        2  // Forwarding by flooding, no routing, single-hop unicast for last hop if neighbour known.
+#define HOP_COUNT_SINGLE_SF              3  // Next hop routing based on single-SF hop count. In case of a tie, select newest route first.
+#define RSSI_SUM_SINGLE_SF               4  // Next hop routing based on single-SF cumulative RSSI. In case of a tie, select newest route first.
+#define RSSI_PROD_SINGLE_SF              5  // Next hop routing based on single-SF multiplicative RSSI. In case of a tie, select newest route first.
+#define ETX_SINGLE_SF                    6  // Next hop routing based on single-SF ETX. In case of a tie, select newest route first.
+#define TIME_ON_AIR_NEWEST_CAD_MULTI_SF 10  // Next hop routing based on multi-SF ToA. In case of a tie, select newest route first.
+#define TIME_ON_AIR_RANDOM_CAD_MULTI_SF 11  // Next hop routing based on multi-SF ToA. In case of a tie, select randomly between drawing routes.
+#define TIME_ON_AIR_HC_CAD_MULTI_SF     12  // Next hop routing based on multi-SF ToA. In case of a tie, select by minimum hop count between drawing routes. In case of a tie, select newest route first.
+#define TIME_ON_AIR_ETX_CAD_MULTI_SF    13  // Next hop routing based on multi-SF ETX-weighted ToA. In case of a tie, select newest route first.
+#define TIME_ON_AIR_FQUEUE_CAD_MULTI_SF 14  // Next hop routing based on multi-SF queue-length-weighted ToA. In case of a tie, select newest route first.
+#define TIME_ON_AIR_RMP1_CAD_MULTI_SF   15  // Next hop routing based on multi-SF ToA. In case of a tie, select newest route first. Randomly use higher SFs than required.
 
 Define_Module (LoRaNodeApp);
 
@@ -800,76 +802,78 @@ void LoRaNodeApp::manageReceivedRoutingPacket(cMessage *msg) {
                 bubble("Discarding routing packet as forwarding is broadcast-based");
                 break;
 
+            // Single-SF metrics
             case HOP_COUNT_SINGLE_SF:
             case RSSI_SUM_SINGLE_SF:
             case RSSI_PROD_SINGLE_SF:
             case ETX_SINGLE_SF:
+
                 bubble("Processing routing packet");
 
-                // Add route to new neighbour node...
+                // Add new route to the neighbour node that sent this routing packet...
                 if (!isRouteInSingleMetricRoutingTable(packet->getSource(), packet->getSource()) ) {
                     EV << "Adding neighbour " << packet->getSource() << endl;
                     singleMetricRoute newNeighbour;
-                        newNeighbour.id = packet->getSource();
-                        newNeighbour.via = packet->getSource();
-                        newNeighbour.valid = simTime() + routeTimeout;
-                        switch (routingMetric) {
-                            case HOP_COUNT_SINGLE_SF:
-                                newNeighbour.metric = 1;
-                                break;
-                            case RSSI_SUM_SINGLE_SF:
-                            case RSSI_PROD_SINGLE_SF:
-                                newNeighbour.metric = std::abs(packet->getOptions().getRSSI());
-                                break;
-                            case ETX_SINGLE_SF:
-                                newNeighbour.metric = 1;
-                                newNeighbour.window[0] = packet->getDataInt();
-                                // Fill window[1] and beyond, until windowSizeth element, with 0's
-                                for (int i = 1; i<windowSize; i++) {
-                                    newNeighbour.window[i] = 0;
-                                }
-                                break;
+                    newNeighbour.id = packet->getSource();
+                    newNeighbour.via = packet->getSource();
+                    newNeighbour.valid = simTime() + routeTimeout;
+                    switch (routingMetric) {
+                        case HOP_COUNT_SINGLE_SF:
+                            newNeighbour.metric = 1;
+                            break;
+                        case RSSI_SUM_SINGLE_SF:
+                        case RSSI_PROD_SINGLE_SF:
+                            newNeighbour.metric = std::abs(packet->getOptions().getRSSI());
+                            break;
+                        case ETX_SINGLE_SF:
+                            newNeighbour.metric = 1;
+                            newNeighbour.window[0] = packet->getDataInt();
+                            // Fill window[1] and beyond, until windowSizeth element, with 0's
+                            for (int i = 1; i<windowSize; i++) {
+                                newNeighbour.window[i] = 0;
+                            }
+                            break;
                         }
-
                     singleMetricRoutingTable.push_back(newNeighbour);
                 }
 
-                // or refresh route to known neighbour.
+                // ... or refresh route to known neighbour.
                 else {
                     int routeIndex = getRouteIndexInSingleMetricRoutingTable(packet->getSource(), packet->getSource());
                     if (routeIndex >= 0) {
                         singleMetricRoutingTable[routeIndex].valid = simTime() + routeTimeout;
-                        // Besides the route validity time, each metric may need different things to be updated
+                        // Besides the route timeout, each metric may need different things to be updated
+                        int metricValue = 1;
                         switch (routingMetric) {
-                            // RSSI may change over time (e.g., different Tx power, mobility...)
                             case RSSI_SUM_SINGLE_SF:
                             case RSSI_PROD_SINGLE_SF:
                                 singleMetricRoutingTable[routeIndex].metric = std::abs(packet->getOptions().getRSSI());
                                 break;
-                            // Metric must be recalculated and window must be updated
                             case ETX_SINGLE_SF:
-                                int metric = 1;
+                                // Metric must be recalculated and ETX window must be updated
                                 // Calculate the metric based on the window of previously received routing packets and update it
                                 for (int i=0; i<windowSize; i++) {
-                                    metric = metric + (packet->getDataInt() - (singleMetricRoutingTable[routeIndex].window[i] + i + 1));
+                                    metricValue = metricValue + (packet->getDataInt() - (singleMetricRoutingTable[routeIndex].window[i] + i + 1));
                                 }
-                                singleMetricRoutingTable[routeIndex].metric = std::max(1, metric);
-                                // Update the window
-                                for (int i=windowSize; i>0; i--) {
+                                singleMetricRoutingTable[routeIndex].metric = std::max(1, metricValue);
+                                // Update the window (set nth element to nth-1 element, and 0th element to the current packet DataInt)
+                                for (int i=windowSize-1; i>0; i--) {
                                     singleMetricRoutingTable[routeIndex].window[i] = singleMetricRoutingTable[routeIndex].window[i-1];
                                 }
                                 singleMetricRoutingTable[routeIndex].window[0] = packet->getDataInt();
+                                break;
+                            default:
                                 break;
                         }
                      }
                 }
 
-                // Iterate the routes in the incoming packet and add them to the routing table, or update them
+                // Iterate the routes in the incoming packet. Add new ones to the routing table, or update known ones.
                 for (int i = 0; i < packet->getRoutingTableArraySize(); i++) {
                     LoRaRoute thisRoute = packet->getRoutingTable(i);
 
                     if (thisRoute.getId() != nodeId) {
-                        // Add new route
+                        // Add new route...
                         if (!isRouteInSingleMetricRoutingTable(thisRoute.getId(), packet->getSource())) {
                             EV << "Adding route to node " << thisRoute.getId() << " via " << packet->getSource() << endl;
 
@@ -892,14 +896,19 @@ void LoRaNodeApp::manageReceivedRoutingPacket(cMessage *msg) {
                                     singleMetricRoutingTable[getRouteIndexInSingleMetricRoutingTable(packet->getSource(), packet->getSource())].metric \
                                     + thisRoute.getPriMetric();
                                 break;
+                            default:
+                                break;
                             }
-
                             singleMetricRoutingTable.push_back(newRoute);
                         }
-                        // Or update known one
+
+                        // ... or update a known one.
                         else {
                             int routeIndex = getRouteIndexInSingleMetricRoutingTable(thisRoute.getId(), packet->getSource());
                             if (routeIndex >= 0) {
+                                // Update route timeout
+                                singleMetricRoutingTable[routeIndex].valid = simTime() + routeTimeout;
+                                // Besides the route timeout, each metric may need different things to be updated
                                 switch (routingMetric) {
                                     case HOP_COUNT_SINGLE_SF:
                                         singleMetricRoutingTable[routeIndex].metric = thisRoute.getPriMetric()+1;
@@ -911,50 +920,82 @@ void LoRaNodeApp::manageReceivedRoutingPacket(cMessage *msg) {
                                         singleMetricRoutingTable[routeIndex].metric = thisRoute.getPriMetric()*std::abs(packet->getOptions().getRSSI());
                                         break;
                                     case ETX_SINGLE_SF:
-                                        singleMetricRoutingTable[routeIndex].metric = \
-                                            singleMetricRoutingTable[getRouteIndexInSingleMetricRoutingTable(packet->getSource(), packet->getSource())].metric \
-                                            + thisRoute.getPriMetric();
+                                        singleMetricRoutingTable[routeIndex].metric = thisRoute.getPriMetric() \
+                                            + singleMetricRoutingTable[getRouteIndexInSingleMetricRoutingTable(packet->getSource(), packet->getSource())].metric;
+                                        break;
+                                    default:
                                         break;
                                 }
-                                singleMetricRoutingTable[routeIndex].valid = simTime() + routeTimeout;
                             }
                         }
                     }
                 }
                 break;
 
+            // Multi-SF metrics
+            case TIME_ON_AIR_NEWEST_CAD_MULTI_SF:
+            case TIME_ON_AIR_RANDOM_CAD_MULTI_SF:
             case TIME_ON_AIR_HC_CAD_MULTI_SF:
             case TIME_ON_AIR_ETX_CAD_MULTI_SF:
             case TIME_ON_AIR_FQUEUE_CAD_MULTI_SF:
             case TIME_ON_AIR_RMP1_CAD_MULTI_SF:
+
                 bubble("Processing routing packet");
 
-                // Add new route to the neighbour node that sent this routing packet
+                // Add new route to the neighbour node that sent this routing packet...
                 if ( !isRouteInDualMetricRoutingTable(packet->getSource(), packet->getSource(), packet->getOptions().getLoRaSF())) {
-//                    EV << "Adding neighbour " << packet->getSource() << " with SF " << packet->getOptions().getLoRaSF() << endl;
-
+                    EV << "Adding neighbour " << packet->getSource() << " with SF " << packet->getOptions().getLoRaSF() << endl;
                     dualMetricRoute newNeighbour;
                     newNeighbour.id = packet->getSource();
                     newNeighbour.via = packet->getSource();
                     newNeighbour.sf = packet->getOptions().getLoRaSF();
+                    newNeighbour.valid = simTime() + routeTimeout;
+                    newNeighbour.priMetric = pow(2, packet->getOptions().getLoRaSF() - 7);
+                    newNeighbour.secMetric = 1;
                     switch (routingMetric) {
-                        case TIME_ON_AIR_HC_CAD_MULTI_SF:
-                        case TIME_ON_AIR_FQUEUE_CAD_MULTI_SF:
-                        case TIME_ON_AIR_RMP1_CAD_MULTI_SF:
-                            newNeighbour.priMetric = pow(2, packet->getOptions().getLoRaSF() - 7);
-                            newNeighbour.secMetric = 1;
-                            break;
                         case TIME_ON_AIR_ETX_CAD_MULTI_SF:
+                            // Fill window[1] and beyond, until windowSizeth element, with 0's
+                            for (int i = 1; i<windowSize; i++)
+                                newNeighbour.window[i] = 0;
+                            newNeighbour.window[0] = packet->getDataInt();
+                            break;
+                        case TIME_ON_AIR_FQUEUE_CAD_MULTI_SF:
+                            newNeighbour.priMetric = newNeighbour.priMetric * ( numberOfNodes/( std::max(numberOfNodes-packet->getBuffer(), numberOfNodes-1)) );
+                            break;
+                        default:
                             break;
                     }
-                    newNeighbour.valid = simTime() + routeTimeout;
                     dualMetricRoutingTable.push_back(newNeighbour);
                 }
-                // or update known route to this node
+
+                // ... or update known route to this node
                 else {
                     int routeIndex = getRouteIndexInDualMetricRoutingTable(packet->getSource(), packet->getSource(), packet->getOptions().getLoRaSF());
                     if (routeIndex >= 0) {
                         dualMetricRoutingTable[routeIndex].valid = simTime() + routeTimeout;
+                        // Besides the route timeout, each metric may need different things to be calculated
+                        int metricValue = 1;
+                        switch (routingMetric) {
+                            case TIME_ON_AIR_ETX_CAD_MULTI_SF:
+                                // Metric must be recalculated and ETX window must be updated
+                                // Calculate the metric based on the window of previously received routing packets and update it
+                                for (int i=0; i<windowSize; i++) {
+                                    metricValue = metricValue + (packet->getDataInt() - (dualMetricRoutingTable[routeIndex].window[i] + i+1));
+                                }
+                                dualMetricRoutingTable[routeIndex].priMetric = std::max(1, metricValue);
+                                // Update the window (set nth element to nth-1 element, and 0th element to the current packet DataInt)
+                                for (int i=windowSize-1; i>0; i--) {
+                                    dualMetricRoutingTable[routeIndex].window[i] = dualMetricRoutingTable[routeIndex].window[i-1];
+                                }
+                                dualMetricRoutingTable[routeIndex].window[0] = packet->getDataInt();
+                                break;
+                            case TIME_ON_AIR_FQUEUE_CAD_MULTI_SF:
+                                // Metric must be recalculated based on current buffer occupation
+                                dualMetricRoutingTable[routeIndex].priMetric = pow(2, packet->getOptions().getLoRaSF() - 7) * ( numberOfNodes/( std::max(numberOfNodes-packet->getBuffer(), numberOfNodes-1)) );
+                                break;
+                            default:
+                                break;
+                        }
                     }
                 }
 
@@ -962,54 +1003,43 @@ void LoRaNodeApp::manageReceivedRoutingPacket(cMessage *msg) {
                     LoRaRoute thisRoute = packet->getRoutingTable(i);
 
                     if (thisRoute.getId() != nodeId ) {
-                        // Add new route
+                        // Add a new route...
                         if ( !isRouteInDualMetricRoutingTable(thisRoute.getId(), packet->getSource(), packet->getOptions().getLoRaSF())) {
                             EV << "Adding route to node " << thisRoute.getId() << " via " << packet->getSource() << " with SF " << packet->getOptions().getLoRaSF() << endl;
                             dualMetricRoute newRoute;
                             newRoute.id = thisRoute.getId();
                             newRoute.via = packet->getSource();
                             newRoute.sf = packet->getOptions().getLoRaSF();
-                            switch (routingMetric) {
-                                case TIME_ON_AIR_HC_CAD_MULTI_SF:
-                                case TIME_ON_AIR_FQUEUE_CAD_MULTI_SF:
-                                case TIME_ON_AIR_RMP1_CAD_MULTI_SF:
-                                    newRoute.priMetric = thisRoute.getPriMetric() + pow(2, packet->getOptions().getLoRaSF() - 7);
-                                    newRoute.secMetric = thisRoute.getSecMetric() + 1;
-                                    break;
-                                case TIME_ON_AIR_ETX_CAD_MULTI_SF:
-                                    break;
-                            }
                             newRoute.valid = simTime() + routeTimeout;
+                            newRoute.priMetric = thisRoute.getPriMetric() \
+                                + dualMetricRoutingTable[getRouteIndexInDualMetricRoutingTable(packet->getSource(),  packet->getSource(), packet->getOptions().getLoRaSF())].priMetric;
+                            newRoute.secMetric = thisRoute.getSecMetric() \
+                                + dualMetricRoutingTable[getRouteIndexInDualMetricRoutingTable(packet->getSource(),  packet->getSource(), packet->getOptions().getLoRaSF())].secMetric;
                             dualMetricRoutingTable.push_back(newRoute);
                         }
                     }
-                    // Or update known one
+
+                    // ... or update a known one.
                     else {
                         int routeIndex = getRouteIndexInDualMetricRoutingTable(thisRoute.getId(), packet->getSource(), packet->getOptions().getLoRaSF());
                         if (routeIndex >= 0) {
-                            switch (routingMetric) {
-                                case TIME_ON_AIR_HC_CAD_MULTI_SF:
-                                case TIME_ON_AIR_FQUEUE_CAD_MULTI_SF:
-                                case TIME_ON_AIR_RMP1_CAD_MULTI_SF:
-                                    dualMetricRoutingTable[routeIndex].priMetric = thisRoute.getPriMetric() + pow(2, packet->getOptions().getLoRaSF() - 7);
-                                    dualMetricRoutingTable[routeIndex].secMetric = thisRoute.getSecMetric() + 1;
-                                    break;
-                                case TIME_ON_AIR_ETX_CAD_MULTI_SF:
-                                    break;
-                            }
                             dualMetricRoutingTable[routeIndex].valid = simTime() + routeTimeout;
+                            dualMetricRoutingTable[routeIndex].priMetric = thisRoute.getPriMetric() \
+                                + dualMetricRoutingTable[getRouteIndexInDualMetricRoutingTable(packet->getSource(),  packet->getSource(), packet->getOptions().getLoRaSF())].priMetric;
+                            dualMetricRoutingTable[routeIndex].secMetric = thisRoute.getSecMetric() \
+                                + dualMetricRoutingTable[getRouteIndexInDualMetricRoutingTable(packet->getSource(),  packet->getSource(), packet->getOptions().getLoRaSF())].secMetric;
                         }
                     }
-                }
+                } // End of multiSF routes for loop.
 
                 EV << "Routing table size: " << end(dualMetricRoutingTable) - begin(dualMetricRoutingTable) << endl;
                 break;
 
             default:
                 break;
-        }
+        } // End of routingMetric switch
         routingTableSize.collect(singleMetricRoutingTable.size());
-    }
+    } // End of routing packet type if
 
     EV << "## Routing table at node " << nodeId << "##" << endl;
     for (int i=0; i<singleMetricRoutingTable.size(); i++) {
@@ -1242,9 +1272,12 @@ simtime_t LoRaNodeApp::sendDataPacket() {
             case RSSI_SUM_SINGLE_SF:
             case RSSI_PROD_SINGLE_SF:
             case ETX_SINGLE_SF:
-            case TIME_ON_AIR_RMP1_CAD_MULTI_SF:
+            case TIME_ON_AIR_NEWEST_CAD_MULTI_SF:
+            case TIME_ON_AIR_RANDOM_CAD_MULTI_SF:
             case TIME_ON_AIR_HC_CAD_MULTI_SF:
             case TIME_ON_AIR_ETX_CAD_MULTI_SF:
+            case TIME_ON_AIR_FQUEUE_CAD_MULTI_SF:
+            case TIME_ON_AIR_RMP1_CAD_MULTI_SF:
             default:
                 while (LoRaPacketsToForward.size() > 0) {
                     addName = "FWD-";
@@ -1318,36 +1351,36 @@ simtime_t LoRaNodeApp::sendDataPacket() {
             case ETX_SINGLE_SF:
                 if ( routeIndex >= 0 )
                     dataPacket->setVia(singleMetricRoutingTable[routeIndex].via);
-                else
+                else {
                     dataPacket->setVia(BROADCAST_ADDRESS);
-
-            case TIME_ON_AIR_HC_CAD_MULTI_SF:
-            case TIME_ON_AIR_ETX_CAD_MULTI_SF:
-            case TIME_ON_AIR_FQUEUE_CAD_MULTI_SF:
-                if ( routeIndex >= 0 ) {
-                    dataPacket->setVia(dualMetricRoutingTable[routeIndex].via);
-                    cInfo->setLoRaSF(dualMetricRoutingTable[routeIndex].sf);
-                }
-                else
-                    dataPacket->setVia(BROADCAST_ADDRESS);
-
-            case TIME_ON_AIR_RMP1_CAD_MULTI_SF:
-                cInfo->setLoRaSF(pickCADSF(dualMetricRoutingTable[routeIndex].sf));
-
-                if ( routeIndex >= 0 ) {
-                    dataPacket->setVia(dualMetricRoutingTable[routeIndex].via);
-                    cInfo->setLoRaSF(dualMetricRoutingTable[routeIndex].sf);
-                }
-                else
-                    dataPacket->setVia(BROADCAST_ADDRESS);
-
-            default:
-                if (dataPacket->getVia() == BROADCAST_ADDRESS) {
                     if (localData)
                         broadcastDataPackets++;
                     else
                         broadcastForwardedPackets++;
                 }
+                break;
+            case TIME_ON_AIR_RMP1_CAD_MULTI_SF:
+                // Randomly pick a higher SF than needed, similar to routing packets
+                cInfo->setLoRaSF(pickCADSF(dualMetricRoutingTable[routeIndex].sf));
+                // do not break;
+            case TIME_ON_AIR_NEWEST_CAD_MULTI_SF:
+            case TIME_ON_AIR_RANDOM_CAD_MULTI_SF:
+            case TIME_ON_AIR_HC_CAD_MULTI_SF:
+            case TIME_ON_AIR_ETX_CAD_MULTI_SF:
+            case TIME_ON_AIR_FQUEUE_CAD_MULTI_SF:
+            default:
+                if ( routeIndex >= 0 ) {
+                    dataPacket->setVia(dualMetricRoutingTable[routeIndex].via);
+                    cInfo->setLoRaSF(dualMetricRoutingTable[routeIndex].sf);
+                }
+                else {
+                    dataPacket->setVia(BROADCAST_ADDRESS);
+                    if (localData)
+                        broadcastDataPackets++;
+                    else
+                        broadcastForwardedPackets++;
+                }
+                break;
         }
 
         dataPacket->setControlInfo(cInfo);
@@ -1411,6 +1444,7 @@ simtime_t LoRaNodeApp::sendRoutingPacket() {
         case SMART_BROADCAST_SINGLE_SF:
             break;
 
+        // Single-SF metrics
         case HOP_COUNT_SINGLE_SF:
         case RSSI_SUM_SINGLE_SF:
         case RSSI_PROD_SINGLE_SF:
@@ -1446,6 +1480,9 @@ simtime_t LoRaNodeApp::sendRoutingPacket() {
 
             break;
 
+        // Multi-SF metrics
+        case TIME_ON_AIR_NEWEST_CAD_MULTI_SF:
+        case TIME_ON_AIR_RANDOM_CAD_MULTI_SF:
         case TIME_ON_AIR_HC_CAD_MULTI_SF:
         case TIME_ON_AIR_ETX_CAD_MULTI_SF:
         case TIME_ON_AIR_FQUEUE_CAD_MULTI_SF:
@@ -1474,15 +1511,8 @@ simtime_t LoRaNodeApp::sendRoutingPacket() {
                     if (getBestRouteIndexTo(i) >= 0 ){
                         LoRaRoute thisLoRaRoute;
                         thisLoRaRoute.setId(dualMetricRoutingTable[getBestRouteIndexTo(i)].id); //i.e., "i"
-                        switch (routingMetric){
-                            case TIME_ON_AIR_FQUEUE_CAD_MULTI_SF:
-                                thisLoRaRoute.setPriMetric(dualMetricRoutingTable[getBestRouteIndexTo(i)].priMetric);
-                                thisLoRaRoute.setSecMetric(dualMetricRoutingTable[getBestRouteIndexTo(i)].secMetric);
-                                break;
-                            default:
-                                thisLoRaRoute.setPriMetric(dualMetricRoutingTable[getBestRouteIndexTo(i)].priMetric);
-                                thisLoRaRoute.setSecMetric(dualMetricRoutingTable[getBestRouteIndexTo(i)].secMetric);
-                        }
+                        thisLoRaRoute.setPriMetric(dualMetricRoutingTable[getBestRouteIndexTo(i)].priMetric);
+                        thisLoRaRoute.setSecMetric(dualMetricRoutingTable[getBestRouteIndexTo(i)].secMetric);
                         routingPacket->setRoutingTable(numberOfRoutes-1, thisLoRaRoute);
                         numberOfRoutes--;
                     }
@@ -1764,11 +1794,13 @@ int LoRaNodeApp::getBestRouteIndexTo(int destination) {
             }
             return getRouteIndexInSingleMetricRoutingTable(availableRoutes[bestRoute].id, availableRoutes[bestRoute].via);
         }
-    }
+    } // End single-SF metrics
+
     else if (dualMetricRoutingTable.size() > 0) {
         int dualMetricRoutesCount = dualMetricRoutingTable.size();
 
         std::vector<dualMetricRoute> availableRoutes;
+        std::vector<dualMetricRoute> tieRoutes;
 
         for (int i = 0; i < dualMetricRoutesCount; i++) {
             if (dualMetricRoutingTable[i].id == destination) {
@@ -1780,21 +1812,65 @@ int LoRaNodeApp::getBestRouteIndexTo(int destination) {
             int bestRoute = 0;
 
             int availableRoutesCount = end(availableRoutes) - begin(availableRoutes);
+            int tieRoutesCount = 0;
+            int j;
 
-            for (int j = 0; j < availableRoutesCount; j++) {
-                if (availableRoutes[j].priMetric < availableRoutes[bestRoute].priMetric ||
-                        ( availableRoutes[j].priMetric == availableRoutes[bestRoute].priMetric &&
-                                availableRoutes[j].secMetric < availableRoutes[bestRoute].secMetric) ||
+            switch (routingMetric) {
+                case TIME_ON_AIR_NEWEST_CAD_MULTI_SF:
+                    // Find best priMetric with longest validity, no ties expected
+                    for (j = 0; j < availableRoutesCount; j++) {
+                        if ( availableRoutes[j].priMetric < availableRoutes[bestRoute].priMetric ||
                                 ( availableRoutes[j].priMetric == availableRoutes[bestRoute].priMetric &&
-                                        availableRoutes[j].secMetric == availableRoutes[bestRoute].secMetric &&
-                                            availableRoutes[j].valid > availableRoutes[bestRoute].valid)) {
-                    bestRoute = j;
-                }
+                                        availableRoutes[j].valid > availableRoutes[bestRoute].valid) ) {
+                            bestRoute = j;
+                        }
+                    }
+                    break;
+                case TIME_ON_AIR_RANDOM_CAD_MULTI_SF:
+                    // Find best routes by priMetric, choose randomly from ties.
+                    // Find best priMetric value
+                    for (j = 0; j < availableRoutesCount; j++) {
+                        if (availableRoutes[j].priMetric < availableRoutes[bestRoute].priMetric) {
+                            bestRoute = j;
+                        }
+                    }
+                    // Find ties
+                    for (j = 0; j < availableRoutesCount; j++) {
+                        if (availableRoutes[j].priMetric == availableRoutes[bestRoute].priMetric) {
+                            tieRoutes.push_back(availableRoutes[j]);
+                        }
+                    }
+                    // Count ties
+                    tieRoutesCount = end(tieRoutes) - begin(tieRoutes);
+                    // Return a random route among the ties
+                    if (tieRoutesCount > 0) {
+                        int bestTieRoute = intuniform(0, tieRoutesCount-1);
+                        return getRouteIndexInDualMetricRoutingTable(tieRoutes[bestTieRoute].id, tieRoutes[bestTieRoute].via, tieRoutes[bestTieRoute].sf);
+                    }
+                    break;
+                case TIME_ON_AIR_HC_CAD_MULTI_SF:
+                case TIME_ON_AIR_ETX_CAD_MULTI_SF:
+                case TIME_ON_AIR_FQUEUE_CAD_MULTI_SF:
+                case TIME_ON_AIR_RMP1_CAD_MULTI_SF:
+                default:
+                    for (j = 0; j < availableRoutesCount; j++) {
+                        if (availableRoutes[j].priMetric < availableRoutes[bestRoute].priMetric ||
+                                ( availableRoutes[j].priMetric == availableRoutes[bestRoute].priMetric &&
+                                        availableRoutes[j].secMetric < availableRoutes[bestRoute].secMetric) ||
+                                        ( availableRoutes[j].priMetric == availableRoutes[bestRoute].priMetric &&
+                                                availableRoutes[j].secMetric == availableRoutes[bestRoute].secMetric &&
+                                                availableRoutes[j].valid > availableRoutes[bestRoute].valid)) {
+                            bestRoute = j;
+                        }
+                    }
+                    break;
             }
+
             return getRouteIndexInDualMetricRoutingTable(availableRoutes[bestRoute].id, availableRoutes[bestRoute].via, availableRoutes[bestRoute].sf);
         }
-    }
+    } // End mulit-SF metrics
 
+    // If no route found, or no routes at all
     return -1;
 }
 
