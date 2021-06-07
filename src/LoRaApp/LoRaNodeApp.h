@@ -74,7 +74,7 @@ class INET_API LoRaNodeApp : public cSimpleModule, public ILifecycle
         void sendDownMgmtPacket();
         void generateDataPackets();
         void sanitizeRoutingTable();
-        int pickCADSF();
+        int pickCADSF(int lowestSF);
         int getBestRouteIndexTo(int destination);
         int getSFTo(int destination);
 
