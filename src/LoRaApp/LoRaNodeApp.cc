@@ -954,10 +954,11 @@ void LoRaNodeApp::manageReceivedRoutingPacket(cMessage *msg) {
                     newNeighbour.secMetric = 1;
                     switch (routingMetric) {
                         case TIME_ON_AIR_ETX_CAD_MULTI_SF:
-                            // Fill window[1] and beyond, until windowSizeth element, with 0's
-                            for (int i = 1; i<windowSize; i++)
-                                newNeighbour.window[i] = 0;
                             newNeighbour.window[0] = packet->getDataInt();
+                            // Fill window[1] and beyond, until windowSizeth element, with 0's
+                            for (int i = 1; i<windowSize; i++) {
+                                newNeighbour.window[i] = 0;
+                            }
                             break;
                         case TIME_ON_AIR_FQUEUE_CAD_MULTI_SF:
                             newNeighbour.priMetric = newNeighbour.priMetric * ( numberOfNodes/( std::max(numberOfNodes-packet->getBuffer(), numberOfNodes-1)) );
@@ -968,21 +969,22 @@ void LoRaNodeApp::manageReceivedRoutingPacket(cMessage *msg) {
                     dualMetricRoutingTable.push_back(newNeighbour);
                 }
 
-                // ... or update known route to this node
+                // ... or refresh route to known neighbour.
                 else {
                     int routeIndex = getRouteIndexInDualMetricRoutingTable(packet->getSource(), packet->getSource(), packet->getOptions().getLoRaSF());
                     if (routeIndex >= 0) {
                         dualMetricRoutingTable[routeIndex].valid = simTime() + routeTimeout;
                         // Besides the route timeout, each metric may need different things to be calculated
-                        int metricValue = 1;
+                        int metricValue = pow(2, packet->getOptions().getLoRaSF() - 7);
+                        int etx = 1;
                         switch (routingMetric) {
                             case TIME_ON_AIR_ETX_CAD_MULTI_SF:
                                 // Metric must be recalculated and ETX window must be updated
                                 // Calculate the metric based on the window of previously received routing packets and update it
                                 for (int i=0; i<windowSize; i++) {
-                                    metricValue = metricValue + (packet->getDataInt() - (dualMetricRoutingTable[routeIndex].window[i] + i+1));
+                                    etx = etx + (packet->getDataInt() - (dualMetricRoutingTable[routeIndex].window[i] + i+1));
                                 }
-                                dualMetricRoutingTable[routeIndex].priMetric = std::max(1, metricValue);
+                                dualMetricRoutingTable[routeIndex].priMetric = std::max(metricValue, metricValue*etx);
                                 // Update the window (set nth element to nth-1 element, and 0th element to the current packet DataInt)
                                 for (int i=windowSize-1; i>0; i--) {
                                     dualMetricRoutingTable[routeIndex].window[i] = dualMetricRoutingTable[routeIndex].window[i-1];
@@ -999,6 +1001,7 @@ void LoRaNodeApp::manageReceivedRoutingPacket(cMessage *msg) {
                     }
                 }
 
+                // Iterate the routes in the incoming packet. Add new ones to the routing table, or update known ones.
                 for (int i = 0; i < packet->getRoutingTableArraySize(); i++) {
                     LoRaRoute thisRoute = packet->getRoutingTable(i);
 
