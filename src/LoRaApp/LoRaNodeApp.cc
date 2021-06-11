@@ -1363,8 +1363,11 @@ simtime_t LoRaNodeApp::sendDataPacket() {
                 }
                 break;
             case TIME_ON_AIR_RMP1_CAD_MULTI_SF:
-                // Randomly pick a higher SF than needed, similar to routing packets
-                cInfo->setLoRaSF(pickCADSF(dualMetricRoutingTable[routeIndex].sf));
+                // Randomly pick a higher SF than needed for this route
+                if ( routeIndex >= 0 )
+                    cInfo->setLoRaSF(pickCADSF(dualMetricRoutingTable[routeIndex].sf));
+                else
+                    cInfo->setLoRaSF(pickCADSF(minLoRaSF));
                 // do not break;
             case TIME_ON_AIR_NEWEST_CAD_MULTI_SF:
             case TIME_ON_AIR_RANDOM_CAD_MULTI_SF:
